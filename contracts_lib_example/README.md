@@ -1,6 +1,7 @@
 # Contracts Library Example
 
 Reusable contracts package with:
+
 - core domain-agnostic contracts
 - agronomy-specific dossier/questionnaire contracts
 - markdown renderers
@@ -10,12 +11,15 @@ Reusable contracts package with:
 ## Design
 
 Source of truth:
+
 - Pydantic models in `contracts/`
 
 Interchange / configuration:
+
 - YAML questionnaire specs in `examples/`
 
 Human-readable artifacts:
+
 - markdown renderers in `contracts/renderers/`
 
 ## Structure
@@ -46,4 +50,6 @@ Install
 pip install pydantic pyyaml
 Run demo
 python examples/build_demo_artifacts.py
+
+```
 
