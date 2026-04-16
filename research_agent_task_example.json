@@ -1,0 +1,15 @@
+bash -lc cat > /mnt/data/research_agent_task_example.json <<'JSON'
+{
+  "task_prompt": "Produce a concise structured research brief on cereal metagenomics and soil/arable crop residue context. Use current web context plus scientific literature. Mention limits explicitly.",
+  "input_vars": {
+    "topic": "cereal metagenomics and soil microbiome context",
+    "company": "Example AgTech",
+    "region": "EU",
+    "source_urls": [
+      "https://www.mdpi.com/2076-2607/12/3/510",
+      "https://www.science.org/doi/10.1126/science.aap9516",
+      "https://research.wur.nl/en/publications/reference-values-for-arable-crop-residues-organic-matter-and-cn-r/"
+    ]
+  }
+}
+JSON
