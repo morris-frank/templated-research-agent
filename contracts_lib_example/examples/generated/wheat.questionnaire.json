@@ -1,0 +1,46 @@
+{
+  "questionnaire_id": "agronomy-core-v1",
+  "subject_id": "wheat__pathogen_panel",
+  "responses": [
+    {
+      "question_id": "reusable_benchmark",
+      "status": "answered",
+      "answer_markdown": "- A reusable benchmark is a stage-specific pathogen pressure panel tied to emergence, canopy closure, and flowering.\n- A companion diagnostic is a standardized sampling + assay bundle for dominant fungal pressure windows.",
+      "key_claims": [
+        {
+          "text": "Stage-specific pathogen pressure panels can be standardized across wheat trials.",
+          "evidence_ids": [
+            "E100",
+            "E101"
+          ],
+          "evidence_urls": [
+            "https://example.org/a",
+            "https://example.org/b"
+          ],
+          "support": "direct",
+          "notes": null
+        }
+      ],
+      "rationale": null
+    },
+    {
+      "question_id": "recurring_monitoring",
+      "status": "partial",
+      "answer_markdown": "- Recurring monitoring is most defensible during vegetative and reproductive windows.\n- Frequency should be tied to disease pressure and weather transitions rather than a fixed universal cadence.",
+      "key_claims": [
+        {
+          "text": "Monitoring cadence should follow disease pressure windows rather than a single fixed schedule.",
+          "evidence_ids": [
+            "E102"
+          ],
+          "evidence_urls": [
+            "https://example.org/c"
+          ],
+          "support": "partial",
+          "notes": null
+        }
+      ],
+      "rationale": null
+    }
+  ]
+}

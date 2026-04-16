@@ -2,47 +2,49 @@ questionnaire_id: agronomy-core-v1
 domain: agronomy
 version: 0.1.0
 questions:
+  - id: reusable_benchmark
+    category: Product
+    prompt_template: "What can become a reusable benchmark or companion diagnostic for {crop} / {use_case}?"
+    variables: [crop, use_case]
+    answer_kind: claim_set
+    evidence_policy: mixed_required
+    required_context:
+      - lifecycle_ontology
+      - production_system_context
+      - primary_use_cases
+    tags: [benchmark, diagnostic, product]
 
-id: reusable_benchmark
-category: Product
-prompt_template: "What can become a reusable benchmark or companion diagnostic for {crop} / {use_case}?"
-variables: [crop, use_case]
-answer_kind: claim_set
-evidence_policy: mixed_required
-required_context:
-lifecycle_ontology
-production_system_context
-primary_use_cases
-tags: [benchmark, diagnostic, product]
-id: recurring_monitoring
-category: Product
-prompt_template: "What becomes recurring monitoring for {crop} / {use_case}?"
-variables: [crop, use_case]
-answer_kind: claim_set
-evidence_policy: mixed_required
-required_context:
-lifecycle_ontology
-observables
-production_system_context
-tags: [monitoring, product]
-id: fixed_scope_pilot
-category: Product
-prompt_template: "What can be sold as a fixed-scope pilot for {crop} / {use_case}?"
-variables: [crop, use_case]
-answer_kind: claim_set
-evidence_policy: mixed_required
-required_context:
-lifecycle_ontology
-production_system_context
-tags: [pilot, product]
-id: target_modeling_modes
-category: Modeling
-prompt_template: "Which targets for {crop} / {use_case} are descriptive vs prescriptive vs causal?"
-variables: [crop, use_case]
-answer_kind: claim_set
-evidence_policy: papers_preferred
-required_context:
-lifecycle_ontology
-observables
-failure_modes
-tags: [modeling, target-selection]
+  - id: recurring_monitoring
+    category: Product
+    prompt_template: "What becomes recurring monitoring for {crop} / {use_case}?"
+    variables: [crop, use_case]
+    answer_kind: claim_set
+    evidence_policy: mixed_required
+    required_context:
+      - lifecycle_ontology
+      - observables
+      - production_system_context
+    tags: [monitoring, product]
+
+  - id: fixed_scope_pilot
+    category: Product
+    prompt_template: "What can be sold as a fixed-scope pilot for {crop} / {use_case}?"
+    variables: [crop, use_case]
+    answer_kind: claim_set
+    evidence_policy: mixed_required
+    required_context:
+      - lifecycle_ontology
+      - production_system_context
+    tags: [pilot, product]
+
+  - id: target_modeling_modes
+    category: Modeling
+    prompt_template: "Which targets for {crop} / {use_case} are descriptive vs prescriptive vs causal?"
+    variables: [crop, use_case]
+    answer_kind: claim_set
+    evidence_policy: papers_preferred
+    required_context:
+      - lifecycle_ontology
+      - observables
+      - failure_modes
+    tags: [modeling, target-selection]

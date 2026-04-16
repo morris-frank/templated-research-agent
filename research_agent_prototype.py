@@ -49,7 +49,10 @@ import os
 import re
 import sys
 import time
+import uuid
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Iterable, Literal
 from urllib.parse import quote_plus, unquote, urlparse
 
@@ -58,6 +61,20 @@ import requests
 from bs4 import BeautifulSoup
 from openai import OpenAI
 from pydantic import BaseModel, Field, ValidationError
+
+_REPO_ROOT = Path(__file__).resolve().parent
+_CONTRACTS_ROOT = _REPO_ROOT / "contracts_lib_example"
+if _CONTRACTS_ROOT.is_dir():
+    sys.path.insert(0, str(_CONTRACTS_ROOT))
+
+from contracts.core.claim_graph import (  # type: ignore[import-untyped]
+    ClaimGraphDraft,
+    EvidenceRecord,
+    EvidenceSourceKind,
+    ExecutionContext,
+    merge_claim_graph,
+    validate_claim_graph,
+)
 
 # -----------------------------
 # Contracts
@@ -102,6 +119,39 @@ class FinalReport(BaseModel):
     market_context: list[Claim]
     open_questions: list[str]
     confidence: Literal["low", "medium", "high"]
+
+
+def _evidence_source_kind(item: EvidenceItem) -> EvidenceSourceKind:
+    if item.source_type == "paper":
+        return "paper"
+    return "web"
+
+
+def evidence_items_to_records(items: list[EvidenceItem], *, execution_id: str) -> list[EvidenceRecord]:
+    out: list[EvidenceRecord] = []
+    for item in items:
+        prov: dict[str, Any] = {
+            "retrieval_method": item.retrieval_method,
+            "source_type": item.source_type,
+        }
+        if item.venue:
+            prov["venue"] = item.venue
+        if item.doi:
+            prov["doi"] = item.doi
+        out.append(
+            EvidenceRecord(
+                evidence_id=item.id,
+                source_kind=_evidence_source_kind(item),
+                title=item.title or None,
+                locator=item.url or f"urn:evidence:{item.id}",
+                excerpt=(item.abstract_or_snippet or None) if item.abstract_or_snippet else None,
+                structured_value=None,
+                provenance=prov,
+                execution_context_id=execution_id,
+                authority_score=item.score,
+            )
+        )
+    return out
 
 
 # -----------------------------
@@ -602,6 +652,34 @@ class ResearchAgent:
             schema_model=FinalReport,
         )
 
+    def draft_claim_graph(
+        self, task_prompt: str, input_vars: dict[str, Any], evidence: list[EvidenceItem]
+    ) -> dict[str, Any]:
+        payload = {
+            "task_prompt": task_prompt,
+            "input_vars": input_vars,
+            "evidence": [e.model_dump() for e in evidence[: self.top_k_evidence]],
+            "instructions": [
+                "Return JSON only matching ClaimGraphDraft.",
+                "Emit claims, claim_evidence_links, claim_dependency_links, and output (FinalProjection). Do not write long prose sections.",
+                "Every claim needs claim_id (stable string), text, claim_kind, scope dict, confidence, status.",
+                "Use claim_evidence_links only with evidence_id values from the provided evidence list.",
+                "Use relation direct_support when the evidence itself states or measures the claim; indirect_support when it requires interpretation.",
+                "Recommendations (claim_kind recommendation) should usually depend_on or be motivated by observation/inference claims via claim_dependency_links.",
+                "output.summary_claim_refs and insight items must reference existing claim_id values.",
+                "For RecommendationItem, rationale_claim_refs point to recommendation claims; dependency_claim_refs point to supporting observation/inference claims.",
+                "If the task has no quantitative soil/lab metrics in evidence, avoid numeric literals in claim text (status contested or qualitative wording).",
+            ],
+        }
+        return self.llm.json_response(
+            system=(
+                "You build a structured claim graph: claims, evidence links, claim dependencies, and a final projection. "
+                "Ground every link in the supplied evidence IDs."
+            ),
+            user_payload=payload,
+            schema_model=ClaimGraphDraft,
+        )
+
     def evaluate(self, draft: dict[str, Any], evidence: list[EvidenceItem]) -> tuple[bool, list[str]]:
         missing: list[str] = []
         try:
@@ -642,6 +720,19 @@ class ResearchAgent:
                 missing.append(f"{section_name}:requires_paper_evidence:{claim.text[:80]}")
 
         return (len(missing) == 0), missing
+
+    def evaluate_claim_graph(
+        self, draft: dict[str, Any], evidence: list[EvidenceItem], execution_context: ExecutionContext
+    ) -> tuple[bool, list[str]]:
+        try:
+            graph_draft = ClaimGraphDraft.model_validate(draft)
+        except ValidationError as e:
+            return False, [f"claim_graph_schema_validation_failed: {e}"]
+
+        records = evidence_items_to_records(evidence, execution_id=execution_context.execution_id)
+        bundle = merge_claim_graph(graph_draft, [execution_context], records)
+        errors = validate_claim_graph(bundle)
+        return (len(errors) == 0), errors
 
     def gap_queries(self, task_prompt: str, input_vars: dict[str, Any], missing_requirements: list[str], evidence: list[EvidenceItem]) -> GapQueries:
         payload = {
@@ -686,6 +777,76 @@ class ResearchAgent:
                 print(f"[warn] paper query failed: {q}: {e}", file=sys.stderr)
 
         return dedupe_evidence(evidence)
+
+    def run_claim_graph(self, task_prompt: str, input_vars: InputVars) -> dict[str, Any]:
+        if not _CONTRACTS_ROOT.is_dir():
+            raise RuntimeError(f"contracts_lib_example not found at {_CONTRACTS_ROOT}; cannot run claim-graph mode")
+
+        run_tag = uuid.uuid4().hex[:12]
+        execution_context = ExecutionContext(
+            execution_id=f"exec-retrieval-{run_tag}",
+            pipeline_kind="retrieval",
+            pipeline_version="research-agent-prototype",
+            run_at=datetime.now(timezone.utc),
+            parameters=input_vars.model_dump(),
+        )
+
+        target_schema = ClaimGraphDraft.model_json_schema()
+        plan = self.plan(task_prompt, input_vars.model_dump(), target_schema)
+        evidence = self.collect_evidence(plan, input_vars)
+
+        if not evidence:
+            raise RuntimeError("No evidence retrieved; aborting")
+
+        last_draft: dict[str, Any] | None = None
+        for iteration in range(self.max_iterations):
+            draft = self.draft_claim_graph(task_prompt, input_vars.model_dump(), evidence)
+            ok, errors = self.evaluate_claim_graph(draft, evidence, execution_context)
+            last_draft = draft
+            if ok:
+                graph_draft = ClaimGraphDraft.model_validate(draft)
+                records = evidence_items_to_records(evidence, execution_id=execution_context.execution_id)
+                bundle = merge_claim_graph(graph_draft, [execution_context], records)
+                return {
+                    "plan": plan.model_dump(),
+                    "evidence": [e.model_dump() for e in evidence[: self.top_k_evidence]],
+                    "claim_graph": bundle.model_dump(mode="json"),
+                    "validation_errors": [],
+                    "iterations": iteration + 1,
+                }
+
+            gap = self.gap_queries(task_prompt, input_vars.model_dump(), errors, evidence)
+            if not gap.web_queries and not gap.paper_queries:
+                break
+
+            incr_plan = PlanOut(
+                subquestions=plan.subquestions,
+                web_queries=gap.web_queries,
+                paper_queries=gap.paper_queries,
+                evidence_requirements=plan.evidence_requirements,
+            )
+            new_evidence = self.collect_evidence(incr_plan, InputVars(topic=input_vars.topic, source_urls=[]))
+            evidence = dedupe_evidence(evidence + new_evidence)
+            time.sleep(0.5)
+
+        graph_draft = ClaimGraphDraft.model_validate(last_draft) if last_draft else None
+        records = evidence_items_to_records(evidence, execution_id=execution_context.execution_id)
+        bundle_dump = None
+        if graph_draft:
+            bundle = merge_claim_graph(graph_draft, [execution_context], records)
+            bundle_dump = bundle.model_dump(mode="json")
+        return {
+            "plan": plan.model_dump(),
+            "evidence": [e.model_dump() for e in evidence[: self.top_k_evidence]],
+            "claim_graph": bundle_dump,
+            "validation_errors": validate_claim_graph(
+                merge_claim_graph(ClaimGraphDraft.model_validate(last_draft), [execution_context], records)
+            )
+            if last_draft
+            else ["no_draft"],
+            "iterations": self.max_iterations,
+            "warning": "Returned best-effort claim graph; deterministic validation still failing.",
+        }
 
     def run(self, task_prompt: str, input_vars: InputVars) -> dict[str, Any]:
         target_schema = FinalReport.model_json_schema()
@@ -769,6 +930,11 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--demo", action="store_true", help="Run the built-in demo payload")
     parser.add_argument("--task-file", type=str, help="Path to JSON file with task_prompt and input_vars")
+    parser.add_argument(
+        "--claim-graph",
+        action="store_true",
+        help="Emit and validate ClaimGraphBundle (claims + links + projection) instead of FinalReport",
+    )
     args = parser.parse_args()
 
     if not args.demo and not args.task_file:
@@ -780,7 +946,7 @@ def main() -> int:
         task_prompt, input_vars = load_task_file(args.task_file)
 
     agent = ResearchAgent(llm=LLMClient())
-    result = agent.run(task_prompt, input_vars)
+    result = agent.run_claim_graph(task_prompt, input_vars) if args.claim_graph else agent.run(task_prompt, input_vars)
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0
 
