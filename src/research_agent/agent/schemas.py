@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class InputVars(BaseModel):
@@ -29,6 +29,8 @@ class EvidenceItem(BaseModel):
 
 
 class Claim(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     text: str
     evidence_ids: list[str] = Field(min_length=1)
     evidence_urls: list[str] = Field(default_factory=list)
@@ -37,6 +39,8 @@ class Claim(BaseModel):
 
 
 class FinalReport(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     summary: str
     key_findings: list[Claim]
     scientific_evidence: list[Claim]
@@ -46,6 +50,8 @@ class FinalReport(BaseModel):
 
 
 class PlanOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     subquestions: list[str]
     web_queries: list[str]
     paper_queries: list[str]
@@ -53,5 +59,7 @@ class PlanOut(BaseModel):
 
 
 class GapQueries(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     web_queries: list[str] = Field(default_factory=list)
     paper_queries: list[str] = Field(default_factory=list)

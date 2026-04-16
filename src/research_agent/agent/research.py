@@ -95,7 +95,7 @@ class ResearchAgent:
             "instructions": [
                 "Return JSON only matching ClaimGraphDraft.",
                 "Emit claims, claim_evidence_links, claim_dependency_links, and output (FinalProjection). Do not write long prose sections.",
-                "Every claim needs claim_id (stable string), text, claim_kind, scope dict, confidence, status.",
+                "Every claim needs claim_id (stable string), text, claim_kind, scope (list of {key, value} entries; use [] if none), confidence, status.",
                 "Use claim_evidence_links only with evidence_id values from the provided evidence list.",
                 "Use relation direct_support when the evidence itself states or measures the claim; indirect_support when it requires interpretation.",
                 "Recommendations (claim_kind recommendation) should usually depend_on or be motivated by observation/inference claims via claim_dependency_links.",

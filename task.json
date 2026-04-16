@@ -1,0 +1,9 @@
+{
+  "task_prompt": "3–5 bullet literature-backed notes on cover crops and soil N; cite limits.",
+  "input_vars": {
+    "topic": "cover crops nitrogen EU",
+    "company": null,
+    "region": "EU",
+    "source_urls": ["https://example.com/some-seed-url-if-any"]
+  }
+}

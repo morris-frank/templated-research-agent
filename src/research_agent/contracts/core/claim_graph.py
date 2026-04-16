@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ValidationIssue(BaseModel):
@@ -98,17 +98,33 @@ class EvidenceRecord(BaseModel):
     retrieved_at: datetime | None = None
 
 
+class ScopeEntry(BaseModel):
+    """Key/value scope tags (OpenAI strict JSON schema rejects map-only object fields in `required`)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    value: str
+
+
 class Claim(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     claim_id: str
     text: str
     claim_kind: ClaimKind
 
-    scope: dict = Field(default_factory=dict)
+    scope: list[ScopeEntry] = Field(default_factory=list)
     confidence: Confidence
     status: ClaimStatus
 
+    def scope_dict(self) -> dict[str, str]:
+        return {e.key: e.value for e in self.scope}
+
 
 class ClaimEvidenceLink(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     link_id: str
     claim_id: str
     evidence_id: str
@@ -119,6 +135,8 @@ class ClaimEvidenceLink(BaseModel):
 
 
 class ClaimDependencyLink(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     link_id: str
     from_claim_id: str
     to_claim_id: str
@@ -128,12 +146,16 @@ class ClaimDependencyLink(BaseModel):
 
 
 class InsightItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     insight_id: str
     text: str
     claim_refs: list[str]
 
 
 class RecommendationItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     recommendation_id: str
     action: str
     rationale_claim_refs: list[str]
@@ -141,6 +163,8 @@ class RecommendationItem(BaseModel):
 
 
 class FinalProjection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     summary_claim_refs: list[str]
     strengths: list[InsightItem] = Field(default_factory=list)
     weaknesses: list[InsightItem] = Field(default_factory=list)
@@ -160,6 +184,8 @@ class ClaimGraphBundle(BaseModel):
 
 class ClaimGraphDraft(BaseModel):
     """Draft slice produced by a model; merge with execution + evidence in application code."""
+
+    model_config = ConfigDict(extra="forbid")
 
     claims: list[Claim]
     claim_evidence_links: list[ClaimEvidenceLink]
