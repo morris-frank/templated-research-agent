@@ -12,7 +12,14 @@ from research_agent.contracts.core.claim_graph import (
     FinalProjection,
     InsightItem,
     RecommendationItem,
+    ScopeEntry,
 )
+
+_SCOPE_PILOT = [
+    ScopeEntry(key="customer", value="Agrinova"),
+    ScopeEntry(key="sample_set_id", value="agrinova-pilot-1"),
+]
+_SCOPE_CUSTOMER = [ScopeEntry(key="customer", value="Agrinova")]
 
 
 def build_agrinova_demo_bundle() -> ClaimGraphBundle:
@@ -99,7 +106,7 @@ def build_agrinova_demo_bundle() -> ClaimGraphBundle:
                 claim_id="C1",
                 text="The sampled soils are chemically strong.",
                 claim_kind="observation",
-                scope={"customer": "Agrinova", "sample_set_id": "agrinova-pilot-1"},
+                scope=list(_SCOPE_PILOT),
                 confidence="high",
                 status="supported",
             ),
@@ -107,7 +114,7 @@ def build_agrinova_demo_bundle() -> ClaimGraphBundle:
                 claim_id="C2",
                 text="The sampled soils are biologically underperforming.",
                 claim_kind="observation",
-                scope={"customer": "Agrinova", "sample_set_id": "agrinova-pilot-1"},
+                scope=list(_SCOPE_PILOT),
                 confidence="high",
                 status="supported",
             ),
@@ -115,7 +122,7 @@ def build_agrinova_demo_bundle() -> ClaimGraphBundle:
                 claim_id="C3",
                 text="The main limiting signal in this pilot appears biological rather than chemical.",
                 claim_kind="inference",
-                scope={"customer": "Agrinova", "sample_set_id": "agrinova-pilot-1"},
+                scope=list(_SCOPE_PILOT),
                 confidence="medium",
                 status="supported",
             ),
@@ -123,7 +130,7 @@ def build_agrinova_demo_bundle() -> ClaimGraphBundle:
                 claim_id="C4",
                 text="Agrinova's highest-value job is product validation for biological inputs rather than generic soil-health reporting alone.",
                 claim_kind="inference",
-                scope={"customer": "Agrinova"},
+                scope=list(_SCOPE_CUSTOMER),
                 confidence="medium",
                 status="supported",
             ),
@@ -131,7 +138,7 @@ def build_agrinova_demo_bundle() -> ClaimGraphBundle:
                 claim_id="C5",
                 text="A higher-value follow-on engagement would test inoculant establishment and product efficacy explicitly.",
                 claim_kind="recommendation",
-                scope={"customer": "Agrinova"},
+                scope=list(_SCOPE_CUSTOMER),
                 confidence="medium",
                 status="supported",
             ),
@@ -139,7 +146,7 @@ def build_agrinova_demo_bundle() -> ClaimGraphBundle:
                 claim_id="C6",
                 text="Restoring fungal biomass and AMF is a plausible agronomic intervention direction.",
                 claim_kind="recommendation",
-                scope={"customer": "Agrinova"},
+                scope=list(_SCOPE_CUSTOMER),
                 confidence="medium",
                 status="supported",
             ),
