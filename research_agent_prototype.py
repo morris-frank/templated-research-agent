@@ -1,7 +1,0 @@
-#!/usr/bin/env python3
-"""Deprecated shim: use `research-agent` or `python -m research_agent`."""
-
-from research_agent.cli.research import main
-
-if __name__ == "__main__":
-    raise SystemExit(main())
