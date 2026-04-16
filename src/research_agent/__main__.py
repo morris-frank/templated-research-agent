@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-"""Deprecated shim: use `research-agent` or `python -m research_agent`."""
+"""python -m research_agent → research CLI (same as research-agent console script)."""
 
 from research_agent.cli.research import main
 

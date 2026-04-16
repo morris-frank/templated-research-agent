@@ -1,0 +1,278 @@
+from __future__ import annotations
+
+from datetime import datetime
+
+from research_agent.contracts.core.claim_graph import (
+    Claim,
+    ClaimDependencyLink,
+    ClaimEvidenceLink,
+    ClaimGraphBundle,
+    EvidenceRecord,
+    ExecutionContext,
+    FinalProjection,
+    InsightItem,
+    RecommendationItem,
+)
+
+
+def build_agrinova_demo_bundle() -> ClaimGraphBundle:
+    """Canonical Agrinova pilot claim graph (structurally complete demo)."""
+    return ClaimGraphBundle(
+        execution_contexts=[
+            ExecutionContext(
+                execution_id="exec-analysis-agrinova-2026-04-02",
+                pipeline_kind="analysis",
+                pipeline_version="soil-insight-v1.4",
+                run_at=datetime.fromisoformat("2026-04-02T10:00:00"),
+                parameters={
+                    "customer": "Agrinova",
+                    "engagement_type": "pilot",
+                    "samples": 4,
+                    "fields": 2,
+                },
+            ),
+            ExecutionContext(
+                execution_id="exec-report-agrinova-2026-04-02",
+                pipeline_kind="report",
+                pipeline_version="report-composer-v0.9",
+                run_at=datetime.fromisoformat("2026-04-02T14:00:00"),
+                parameters={},
+            ),
+        ],
+        evidence_records=[
+            EvidenceRecord(
+                evidence_id="E1",
+                source_kind="derived_metric",
+                title="F:B ratio",
+                locator="sample_set:agrinova/F:B_ratio",
+                structured_value={"metric": "F:B_ratio", "value": 0.09},
+                provenance={"sample_set_id": "agrinova-pilot-1"},
+                execution_context_id="exec-analysis-agrinova-2026-04-02",
+            ),
+            EvidenceRecord(
+                evidence_id="E2",
+                source_kind="derived_metric",
+                title="Nitrogen fixation proxy",
+                locator="sample_set:agrinova/nitrogen_fixation",
+                structured_value={"metric": "nitrogen_fixation", "value": 0.01},
+                provenance={"sample_set_id": "agrinova-pilot-1"},
+                execution_context_id="exec-analysis-agrinova-2026-04-02",
+            ),
+            EvidenceRecord(
+                evidence_id="E3",
+                source_kind="derived_metric",
+                title="AMF abundance",
+                locator="sample_set:agrinova/AMF",
+                structured_value={"metric": "AMF", "value": "near_absent"},
+                provenance={"sample_set_id": "agrinova-pilot-1"},
+                execution_context_id="exec-analysis-agrinova-2026-04-02",
+            ),
+            EvidenceRecord(
+                evidence_id="E4",
+                source_kind="benchmark",
+                title="SOC percentile",
+                locator="benchmark:agrinova/SOC_percentile",
+                structured_value={"metric": "SOC", "percentile": 95},
+                provenance={"benchmark_set": "soil-health-reference-v2"},
+                execution_context_id="exec-analysis-agrinova-2026-04-02",
+            ),
+            EvidenceRecord(
+                evidence_id="E5",
+                source_kind="customer_input",
+                title="Discovery pain point",
+                locator="discovery:agrinova:2026-03-17",
+                excerpt="Need proof of efficacy of Rhizobium products and integration with remote sensing data.",
+                provenance={"artifact": "discovery_call_notes"},
+            ),
+            EvidenceRecord(
+                evidence_id="E6",
+                source_kind="report_artifact",
+                title="Recommendations document",
+                locator="report:agrinova:recommendations:2026-04-02",
+                excerpt="Increase fungal biomass, restore AMF, add legumes, improve residue decomposition.",
+                provenance={"artifact": "recommendations_doc"},
+                execution_context_id="exec-report-agrinova-2026-04-02",
+            ),
+        ],
+        claims=[
+            Claim(
+                claim_id="C1",
+                text="The sampled soils are chemically strong.",
+                claim_kind="observation",
+                scope={"customer": "Agrinova", "sample_set_id": "agrinova-pilot-1"},
+                confidence="high",
+                status="supported",
+            ),
+            Claim(
+                claim_id="C2",
+                text="The sampled soils are biologically underperforming.",
+                claim_kind="observation",
+                scope={"customer": "Agrinova", "sample_set_id": "agrinova-pilot-1"},
+                confidence="high",
+                status="supported",
+            ),
+            Claim(
+                claim_id="C3",
+                text="The main limiting signal in this pilot appears biological rather than chemical.",
+                claim_kind="inference",
+                scope={"customer": "Agrinova", "sample_set_id": "agrinova-pilot-1"},
+                confidence="medium",
+                status="supported",
+            ),
+            Claim(
+                claim_id="C4",
+                text="Agrinova's highest-value job is product validation for biological inputs rather than generic soil-health reporting alone.",
+                claim_kind="inference",
+                scope={"customer": "Agrinova"},
+                confidence="medium",
+                status="supported",
+            ),
+            Claim(
+                claim_id="C5",
+                text="A higher-value follow-on engagement would test inoculant establishment and product efficacy explicitly.",
+                claim_kind="recommendation",
+                scope={"customer": "Agrinova"},
+                confidence="medium",
+                status="supported",
+            ),
+            Claim(
+                claim_id="C6",
+                text="Restoring fungal biomass and AMF is a plausible agronomic intervention direction.",
+                claim_kind="recommendation",
+                scope={"customer": "Agrinova"},
+                confidence="medium",
+                status="supported",
+            ),
+        ],
+        claim_evidence_links=[
+            ClaimEvidenceLink(
+                link_id="L1",
+                claim_id="C1",
+                evidence_id="E4",
+                relation="direct_support",
+                rationale="SOC percentile directly supports strong chemical/structural condition.",
+                strength=0.92,
+            ),
+            ClaimEvidenceLink(
+                link_id="L2",
+                claim_id="C2",
+                evidence_id="E1",
+                relation="direct_support",
+                rationale="Very low F:B ratio directly supports weak fungal balance.",
+                strength=0.95,
+            ),
+            ClaimEvidenceLink(
+                link_id="L3",
+                claim_id="C2",
+                evidence_id="E2",
+                relation="direct_support",
+                rationale="Near-zero nitrogen fixation proxy directly supports biological underperformance.",
+                strength=0.90,
+            ),
+            ClaimEvidenceLink(
+                link_id="L4",
+                claim_id="C2",
+                evidence_id="E3",
+                relation="direct_support",
+                rationale="Near-absent AMF directly supports impaired biological functioning.",
+                strength=0.93,
+            ),
+            ClaimEvidenceLink(
+                link_id="L5",
+                claim_id="C4",
+                evidence_id="E5",
+                relation="direct_support",
+                rationale="Discovery notes explicitly state product efficacy validation as a customer pain point.",
+                strength=0.91,
+            ),
+            ClaimEvidenceLink(
+                link_id="L6",
+                claim_id="C6",
+                evidence_id="E6",
+                relation="direct_support",
+                rationale="Recommendation artifact explicitly proposes restoring fungal biomass and AMF.",
+                strength=0.85,
+            ),
+        ],
+        claim_dependency_links=[
+            ClaimDependencyLink(
+                link_id="D1",
+                from_claim_id="C3",
+                to_claim_id="C1",
+                relation="depends_on",
+                rationale="Inference requires chemical strength context.",
+            ),
+            ClaimDependencyLink(
+                link_id="D2",
+                from_claim_id="C3",
+                to_claim_id="C2",
+                relation="depends_on",
+                rationale="Inference requires biological weakness observations.",
+            ),
+            ClaimDependencyLink(
+                link_id="D3",
+                from_claim_id="C5",
+                to_claim_id="C3",
+                relation="motivates",
+                rationale="Follow-on product-validation engagement follows from identified biological limitation.",
+            ),
+            ClaimDependencyLink(
+                link_id="D4",
+                from_claim_id="C5",
+                to_claim_id="C4",
+                relation="motivates",
+                rationale="Follow-on scope should align with customer job-to-be-done.",
+            ),
+            ClaimDependencyLink(
+                link_id="D5",
+                from_claim_id="C6",
+                to_claim_id="C2",
+                relation="motivates",
+                rationale="Intervention direction follows from biological underperformance.",
+            ),
+        ],
+        output=FinalProjection(
+            summary_claim_refs=["C3", "C4"],
+            strengths=[
+                InsightItem(
+                    insight_id="S1",
+                    text="Chemically and structurally, the soils look strong.",
+                    claim_refs=["C1"],
+                ),
+            ],
+            weaknesses=[
+                InsightItem(
+                    insight_id="W1",
+                    text="Biological performance is weak, including fungal balance, AMF presence, and nitrogen fixation proxies.",
+                    claim_refs=["C2"],
+                ),
+            ],
+            implications=[
+                InsightItem(
+                    insight_id="I1",
+                    text="The key limiting signal in this pilot is biological rather than chemical.",
+                    claim_refs=["C3"],
+                ),
+                InsightItem(
+                    insight_id="I2",
+                    text="The commercial wedge is product validation, not generic dashboarding alone.",
+                    claim_refs=["C4"],
+                ),
+            ],
+            recommendations=[
+                RecommendationItem(
+                    recommendation_id="R1",
+                    action="Design a follow-on engagement focused on inoculant establishment and efficacy validation.",
+                    rationale_claim_refs=["C5"],
+                    dependency_claim_refs=["C3", "C4"],
+                ),
+                RecommendationItem(
+                    recommendation_id="R2",
+                    action="Prioritize interventions that restore fungal biomass and AMF.",
+                    rationale_claim_refs=["C6"],
+                    dependency_claim_refs=["C2"],
+                ),
+            ],
+            open_question_claim_refs=[],
+        ),
+    )

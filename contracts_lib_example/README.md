@@ -1,55 +1,12 @@
-# Contracts Library Example
+# Contracts library (moved)
 
-Reusable contracts package with:
+This folder previously held the `contracts` package. It now lives under:
 
-- core domain-agnostic contracts
-- agronomy-specific dossier/questionnaire contracts
-- markdown renderers
-- example agronomy questionnaire spec
-- thin workflow stubs showing intended integration boundaries
+- **`src/research_agent/contracts/`** — install with `pip install -e .` from the repo root and import `research_agent.contracts...`.
 
-## Design
+Examples and workflow stubs moved to:
 
-Source of truth:
+- **`examples/`** — demo scripts and generated artifacts
+- **`examples/workflows/`** — placeholder workflow boundaries
 
-- Pydantic models in `contracts/`
-
-Interchange / configuration:
-
-- YAML questionnaire specs in `examples/`
-
-Human-readable artifacts:
-
-- markdown renderers in `contracts/renderers/`
-
-## Structure
-
-```text
-contracts/
-  core/
-    artifact_meta.py
-    evidence.py
-    claims.py
-    questionnaire.py
-  agronomy/
-    dossier.py
-    questionnaire.py
-  renderers/
-    markdown.py
-
-examples/
-  questionnaire.agronomy.yaml
-  build_demo_artifacts.py
-
-workflows/
-  agronomy/
-    build_dossier.py
-    filter_questionnaire.py
-    answer_questionnaire.py
-Install
-pip install pydantic pyyaml
-Run demo
-python examples/build_demo_artifacts.py
-
-```
-
+See the root **[README.md](../README.md)** and **[docs/](../docs/)**.

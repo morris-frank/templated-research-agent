@@ -1,0 +1,1 @@
+"""Domain-agnostic contract models."""
