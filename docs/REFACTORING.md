@@ -13,8 +13,8 @@
 ## Breaking changes (historical migration)
 
 - Imports `**from contracts....**` → `**from research_agent.contracts....**`
-- Former **`contracts_lib_example/`** layout is gone; use **`src/research_agent/contracts`**, repo **`examples/`**, **`examples/workflows/**`.
-- Root **`research_agent_prototype.py`** / **`claim_graph_prototype.py`** shims are not shipped in this tree; use **`research-agent`** / **`claim-graph`** entry points or **`python -m research_agent`**.
+- Former `**contracts_lib_example/**` layout is gone; use `**src/research_agent/contracts**`, repo `**examples/**`, `**examples/workflows/**`.
+- Root `**research_agent_prototype.py**` / `**claim_graph_prototype.py**` shims are not shipped in this tree; use `**research-agent**` / `**claim-graph**` entry points or `**python -m research_agent**`.
 
 ## Final repo tree (high level)
 
