@@ -1,9 +1,10 @@
 {
-  "task_prompt": "3–5 bullet literature-backed notes on cover crops and soil N; cite limits.",
-  "input_vars": {
-    "topic": "cover crops nitrogen EU",
-    "company": null,
-    "region": "EU",
-    "source_urls": ["https://example.com/some-seed-url-if-any"]
+  "task_prompt": "Build a crop dossier for wheat disease-pressure management.",
+  "input_vars": {"topic": "wheat agronomy", "region": "EU", "source_urls": []},
+  "dossier_input": {
+    "crop_name": "Wheat",
+    "crop_category": "cereal",
+    "primary_use_cases": ["pathogen panel"],
+    "priority_tier": "T1"
   }
 }

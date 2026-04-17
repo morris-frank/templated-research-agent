@@ -18,11 +18,40 @@ pip install -e ".[dev]"
 
 | Command | Purpose | Extras |
 |--------|---------|--------|
-| `research-agent` | Full agent (`--demo`, `--task-file`, optional `--claim-graph`). Requires API keys (see below). | `[retrieval]` |
+| `research-agent` | Full agent (`--final-report` default or `--dossier`) with optional `--claim-graph` sidecar. Requires API keys (see below). | `[retrieval]` |
 | `python -m research_agent` | Same as `research-agent`. | `[retrieval]` |
 | `claim-graph` | Validate / render / export a `ClaimGraphBundle` (`--demo` uses package demo data). | core |
 
 Environment (research agent): `OPENAI_API_KEY`, `TAVILY_API_KEY`; optional `OPENAI_MODEL`, `OPENAI_BASE_URL`, `OPENAI_ORG`.
+
+### `research-agent` mode matrix
+
+- default / `--final-report`: emit `final` primary artifact
+- `--claim-graph`: add `claim_graph_sidecar` (does not replace primary artifact)
+- `--dossier`: emit `dossier` primary artifact (requires `dossier_input` in task file unless `--demo`)
+- `--dossier --claim-graph`: dossier primary + claim-graph sidecar
+- invalid: `--final-report --dossier`
+
+`evidence_ids` in dossier outputs are run-local IDs (`E001`, `E002`, ...), valid within that run's `evidence_index`.
+
+### Live dossier example
+
+```json
+{
+  "task_prompt": "Build a crop dossier for wheat disease-pressure management.",
+  "input_vars": {"topic": "wheat agronomy", "region": "EU", "source_urls": []},
+  "dossier_input": {
+    "crop_name": "Wheat",
+    "crop_category": "cereal",
+    "primary_use_cases": ["pathogen panel"],
+    "priority_tier": "T1"
+  }
+}
+```
+
+```bash
+research-agent --task-file task.json --dossier --claim-graph --render-markdown wheat.dossier.md
+```
 
 ## Examples
 

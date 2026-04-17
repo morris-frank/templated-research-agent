@@ -20,6 +20,9 @@ class DossierThresholds(BaseModel):
     min_interventions: int = 3
     min_pathogens: int = 2
     min_evidence_linked_fraction: float = 0.5
+    min_evidence_linked_per_section: dict[str, int] = Field(
+        default_factory=lambda: {"yield_drivers": 1, "interventions": 1, "pathogens": 1}
+    )
 
 
 class CropDossierValidationResult(BaseModel):
@@ -185,6 +188,21 @@ def validate_crop_dossier_detailed(
                     f"{evidence_linked}/{total_bearers} evidence-bearing items have at "
                     f"least one evidence_id ({fraction:.0%}); threshold is "
                     f"{th.min_evidence_linked_fraction:.0%}",
+                )
+            )
+
+    section_floors = th.min_evidence_linked_per_section
+    section_counts = {
+        "yield_drivers": sum(1 for item in dossier.yield_drivers if item.evidence_ids),
+        "interventions": sum(1 for item in dossier.interventions if item.evidence_ids),
+        "pathogens": sum(1 for item in dossier.pathogens if item.evidence_ids),
+    }
+    for section, floor in section_floors.items():
+        if section_counts.get(section, 0) < floor:
+            errors.append(
+                _err(
+                    f"per_section_evidence_floor:{section}",
+                    f"Section {section!r} has {section_counts.get(section, 0)} evidence-linked items; floor is {floor}",
                 )
             )
 

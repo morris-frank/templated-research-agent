@@ -37,7 +37,7 @@ flowchart TB
 3. `ResearchAgent.draft` → `FinalReport` JSON (LLM).
 4. `ResearchAgent.evaluate` → schema + claim/evidence checks against retrieved IDs.
 
-**Claim graph mode**
+**Claim graph sidecar**
 
 1. Same plan + evidence as above.
 2. `ResearchAgent.draft_claim_graph` → `ClaimGraphDraft` (LLM).
@@ -49,11 +49,18 @@ flowchart TB
 
 - Loads a bundle from `--input-json` or the canonical `build_agrinova_demo_bundle()` in `research_agent.contracts.examples` (not implemented inside the CLI).
 
-**Agronomy dossier**
+**Agronomy dossier mode**
 
 - `contracts/agronomy/dossier.py` carries the full `CropDossier` shape: production context, lifecycle ontology, an agronomic-model layer (`YieldDriver`, `LimitingFactor`, `HeuristicRule`), an intervention layer (`Intervention` + ID-linked `InterventionEffect`), biotic risks (`Pathogen`, `BeneficialOrganism`), soil/microbiome relevance, `CoverCropEffect`, and a local `evidence_index` of `EvidenceRef`s.
-- `contracts/agronomy/validation.py` mirrors the claim-graph validator: `validate_crop_dossier_detailed` returns coded `ValidationIssue` errors (no warnings yet) and enforces configurable minimums via `DossierThresholds` (yield drivers / interventions / pathogens, evidence-linkage fraction, intervention-effect FK integrity).
+- `agent/research.py::run_dossier` reuses plan/retrieval, then performs 3 strict-schema partial drafts (`structure`, `agronomic`, `interventions`) and merges them into `CropDossierDraft`.
+- `agent/dossier_bridge.py::merge_crop_dossier` normalizes references at merge-time, drops dangling refs, and reports dropped entries back to the evaluator.
+- `contracts/agronomy/validation.py` mirrors the claim-graph validator: `validate_crop_dossier_detailed` returns coded `ValidationIssue` errors (no warnings yet) and enforces configurable minimums via `DossierThresholds` (yield drivers / interventions / pathogens, global evidence-linkage fraction, per-section evidence floors, intervention-effect FK integrity).
 - Rendering is centralized in `contracts/renderers/markdown.py::render_crop_dossier_markdown`; new sections are emitted only when their list is non-empty so legacy dossiers render unchanged.
+
+Selective gap-fill policy:
+- first iteration drafts all three dossier partials
+- subsequent iterations map error codes to affected partial(s) and re-draft only those
+- retrieval-only issues (e.g., weak/unknown evidence links) first trigger gap queries; if still unresolved, all partials are refreshed
 
 ## Replacing components
 

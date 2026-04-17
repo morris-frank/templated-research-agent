@@ -4,20 +4,27 @@ import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import ValidationError
 
 from research_agent.agent.claim_graph_bridge import evidence_items_to_records
+from research_agent.agent.dossier_bridge import DroppedRef, evidence_items_to_refs, merge_crop_dossier
 from research_agent.agent.llm import LLMClient
 from research_agent.agent.schemas import (
     Claim,
+    CropDossierDraft,
+    DossierAgronomicPartial,
+    DossierInterventionPartial,
+    DossierStructurePartial,
     EvidenceItem,
     FinalReport,
     GapQueries,
     InputVars,
     PlanOut,
 )
+from research_agent.contracts.agronomy.input import DossierInputVars
+from research_agent.contracts.agronomy.validation import DossierThresholds, validate_crop_dossier_detailed
 from research_agent.contracts.core.claim_graph import (
     ClaimGraphDraft,
     ExecutionContext,
@@ -29,6 +36,35 @@ from research_agent.retrieval.sources import (
     collect_evidence_for_plan,
     collect_evidence_for_queries,
 )
+
+Partial = Literal["structure", "agronomic", "interventions"]
+
+_CODE_TO_PARTIAL: dict[str, Partial] = {
+    "lifecycle_missing_stages": "structure",
+    "too_few_yield_drivers": "agronomic",
+    "too_few_limiting_factors": "agronomic",
+    "too_few_interventions": "interventions",
+    "too_few_pathogens": "interventions",
+    "intervention_effect_dangling_fk": "interventions",
+    "merge_ref_dropped": "interventions",
+    "per_section_evidence_floor:yield_drivers": "agronomic",
+    "per_section_evidence_floor:interventions": "interventions",
+    "per_section_evidence_floor:pathogens": "interventions",
+}
+
+
+def _collect_evidence_ids(value: Any) -> set[str]:
+    ids: set[str] = set()
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            if key == "evidence_ids" and isinstance(nested, list):
+                ids.update(str(item) for item in nested)
+            else:
+                ids.update(_collect_evidence_ids(nested))
+    elif isinstance(value, list):
+        for item in value:
+            ids.update(_collect_evidence_ids(item))
+    return ids
 
 
 def claim_lists(report: FinalReport) -> list[tuple[str, Claim]]:
@@ -116,6 +152,115 @@ class ResearchAgent:
             schema_model=ClaimGraphDraft,
         )
 
+    def draft_crop_dossier_structure(
+        self, task_prompt: str, input_vars: dict[str, Any], dossier_input: DossierInputVars, evidence: list[EvidenceItem]
+    ) -> DossierStructurePartial:
+        payload = {
+            "task_prompt": task_prompt,
+            "input_vars": input_vars,
+            "dossier_input": dossier_input.model_dump(),
+            "evidence": [e.model_dump() for e in evidence[: self.top_k_evidence]],
+            "instructions": [
+                "Return JSON only matching DossierStructurePartial.",
+                "Populate production context and lifecycle ontology with practical specificity.",
+            ],
+        }
+        out = self.llm.json_response(
+            system="Draft the structural sections of a crop dossier from evidence.",
+            user_payload=payload,
+            schema_model=DossierStructurePartial,
+        )
+        return DossierStructurePartial.model_validate(out)
+
+    def draft_crop_dossier_agronomic(
+        self,
+        task_prompt: str,
+        input_vars: dict[str, Any],
+        evidence: list[EvidenceItem],
+        structure: DossierStructurePartial,
+    ) -> DossierAgronomicPartial:
+        payload = {
+            "task_prompt": task_prompt,
+            "input_vars": input_vars,
+            "structure": structure.model_dump(),
+            "evidence": [e.model_dump() for e in evidence[: self.top_k_evidence]],
+            "instructions": [
+                "Return JSON only matching DossierAgronomicPartial.",
+                "Use lifecycle stage names from structure.lifecycle_ontology where stage is needed.",
+            ],
+        }
+        out = self.llm.json_response(
+            system="Draft the agronomic-model sections of a crop dossier from evidence.",
+            user_payload=payload,
+            schema_model=DossierAgronomicPartial,
+        )
+        return DossierAgronomicPartial.model_validate(out)
+
+    def draft_crop_dossier_interventions(
+        self,
+        task_prompt: str,
+        input_vars: dict[str, Any],
+        evidence: list[EvidenceItem],
+        structure: DossierStructurePartial,
+        agronomic: DossierAgronomicPartial,
+    ) -> DossierInterventionPartial:
+        payload = {
+            "task_prompt": task_prompt,
+            "input_vars": input_vars,
+            "structure": structure.model_dump(),
+            "agronomic": agronomic.model_dump(),
+            "evidence": [e.model_dump() for e in evidence[: self.top_k_evidence]],
+            "instructions": [
+                "Return JSON only matching DossierInterventionPartial.",
+                "intervention_effects.intervention_id must reference interventions ids.",
+                "intervention_effects.target_ref and cover_crop_effects.target_ref must reference IDs present in agronomic/pathogen/soil/microbiome sections.",
+            ],
+        }
+        out = self.llm.json_response(
+            system="Draft interventions, biotic risks, and systems interactions for crop dossier.",
+            user_payload=payload,
+            schema_model=DossierInterventionPartial,
+        )
+        return DossierInterventionPartial.model_validate(out)
+
+    def draft_crop_dossier(
+        self,
+        task_prompt: str,
+        input_vars: dict[str, Any],
+        dossier_input: DossierInputVars,
+        evidence: list[EvidenceItem],
+        *,
+        refresh_only: set[Partial] | None = None,
+        prior: CropDossierDraft | None = None,
+    ) -> CropDossierDraft:
+        if prior is None and refresh_only:
+            refresh_only = None
+        refresh = refresh_only or {"structure", "agronomic", "interventions"}
+
+        structure = (
+            self.draft_crop_dossier_structure(task_prompt, input_vars, dossier_input, evidence)
+            if "structure" in refresh
+            else DossierStructurePartial.model_validate(prior.model_dump())
+        )
+        agronomic = (
+            self.draft_crop_dossier_agronomic(task_prompt, input_vars, evidence, structure)
+            if "agronomic" in refresh
+            else DossierAgronomicPartial.model_validate(prior.model_dump())
+        )
+        interventions = (
+            self.draft_crop_dossier_interventions(task_prompt, input_vars, evidence, structure, agronomic)
+            if "interventions" in refresh
+            else DossierInterventionPartial.model_validate(prior.model_dump())
+        )
+
+        return CropDossierDraft.model_validate(
+            {
+                **structure.model_dump(),
+                **agronomic.model_dump(),
+                **interventions.model_dump(),
+            }
+        )
+
     def evaluate(self, draft: dict[str, Any], evidence: list[EvidenceItem]) -> tuple[bool, list[str]]:
         missing: list[str] = []
         try:
@@ -172,6 +317,27 @@ class ResearchAgent:
         errors = validate_claim_graph(bundle)
         return (len(errors) == 0), errors
 
+    def evaluate_crop_dossier(
+        self,
+        dossier,
+        evidence: list[EvidenceItem],
+        dropped_refs: list[DroppedRef],
+        thresholds: DossierThresholds | None = None,
+    ) -> tuple[bool, list[str]]:
+        errors: list[str] = []
+        result = validate_crop_dossier_detailed(dossier, thresholds)
+        errors.extend(f"{issue.code}: {issue.message}" for issue in result.errors)
+
+        known_ids = {e.id for e in evidence}
+        for eid in sorted(_collect_evidence_ids(dossier.model_dump())):
+            if eid not in known_ids:
+                errors.append(f"evidence_id_unknown:{eid}: dossier references unknown evidence id")
+        for drop in dropped_refs:
+            errors.append(
+                f"merge_ref_dropped:{drop.kind}:{drop.value}: {drop.location} dropped ({drop.reason})"
+            )
+        return len(errors) == 0, errors
+
     def gap_queries(
         self, task_prompt: str, input_vars: dict[str, Any], missing_requirements: list[str], evidence: list[EvidenceItem]
     ) -> GapQueries:
@@ -199,7 +365,13 @@ class ResearchAgent:
         """Gap-fill retrieval: plan queries only, no seed URL re-fetch."""
         return collect_evidence_for_queries(plan)
 
-    def run_claim_graph(self, task_prompt: str, input_vars: InputVars) -> dict[str, Any]:
+    def compose_claim_graph_from(
+        self,
+        task_prompt: str,
+        input_vars: InputVars,
+        plan: PlanOut,
+        evidence: list[EvidenceItem],
+    ) -> dict[str, Any]:
         run_tag = uuid.uuid4().hex[:12]
         execution_context = ExecutionContext(
             execution_id=f"exec-retrieval-{run_tag}",
@@ -208,13 +380,6 @@ class ResearchAgent:
             run_at=datetime.now(timezone.utc),
             parameters=input_vars.model_dump(),
         )
-
-        target_schema = ClaimGraphDraft.model_json_schema()
-        plan = self.plan(task_prompt, input_vars.model_dump(), target_schema)
-        evidence = self.collect_evidence(plan, input_vars)
-
-        if not evidence:
-            raise RuntimeError("No evidence retrieved; aborting")
 
         last_draft: dict[str, Any] | None = None
         for iteration in range(self.max_iterations):
@@ -266,6 +431,91 @@ class ResearchAgent:
             "warning": "Returned best-effort claim graph; deterministic validation still failing.",
         }
 
+    def run_claim_graph(self, task_prompt: str, input_vars: InputVars) -> dict[str, Any]:
+        """LEGACY helper retained for Python callers; CLI uses sidecar composition."""
+        target_schema = ClaimGraphDraft.model_json_schema()
+        plan = self.plan(task_prompt, input_vars.model_dump(), target_schema)
+        evidence = self.collect_evidence(plan, input_vars)
+        if not evidence:
+            raise RuntimeError("No evidence retrieved; aborting")
+        return self.compose_claim_graph_from(task_prompt, input_vars, plan, evidence)
+
+    def _partials_to_refresh(self, validation_errors: list[str]) -> set[Partial]:
+        refresh: set[Partial] = set()
+        for err in validation_errors:
+            code = err.split(": ", 1)[0]
+            mapped = _CODE_TO_PARTIAL.get(code)
+            if mapped:
+                refresh.add(mapped)
+        return refresh
+
+    def run_dossier(
+        self,
+        task_prompt: str,
+        input_vars: InputVars,
+        dossier_input: DossierInputVars,
+        *,
+        thresholds: DossierThresholds | None = None,
+    ) -> dict[str, Any]:
+        target_schema = CropDossierDraft.model_json_schema()
+        plan = self.plan(task_prompt, input_vars.model_dump(), target_schema)
+        evidence = self.collect_evidence(plan, input_vars)
+        if not evidence:
+            raise RuntimeError("No evidence retrieved; aborting")
+
+        draft = self.draft_crop_dossier(task_prompt, input_vars.model_dump(), dossier_input, evidence)
+        last_errors: list[str] = []
+        for iteration in range(self.max_iterations):
+            dossier, dropped = merge_crop_dossier(
+                draft,
+                evidence_items_to_refs(evidence),
+                artifact_id=f"dossier-{uuid.uuid4().hex[:12]}",
+                now=datetime.now(timezone.utc),
+            )
+            ok, errors = self.evaluate_crop_dossier(dossier, evidence, dropped, thresholds)
+            if ok:
+                return {
+                    "plan": plan.model_dump(),
+                    "evidence": [e.model_dump() for e in evidence[: self.top_k_evidence]],
+                    "dossier": dossier.model_dump(mode="json"),
+                    "validation_errors": [],
+                    "iterations": iteration + 1,
+                }
+            last_errors = errors
+            gap = self.gap_queries(task_prompt, input_vars.model_dump(), errors, evidence)
+            if gap.web_queries or gap.paper_queries:
+                incr_plan = PlanOut(
+                    subquestions=plan.subquestions,
+                    web_queries=gap.web_queries,
+                    paper_queries=gap.paper_queries,
+                    evidence_requirements=plan.evidence_requirements,
+                )
+                evidence = dedupe_evidence(evidence + self.collect_incremental_evidence(incr_plan))
+            refresh = self._partials_to_refresh(errors)
+            if any(e.startswith("low_evidence_coverage:") or e.startswith("evidence_id_unknown:") for e in errors) and not refresh:
+                refresh = {"structure", "agronomic", "interventions"}
+            draft = self.draft_crop_dossier(
+                task_prompt,
+                input_vars.model_dump(),
+                dossier_input,
+                evidence,
+                refresh_only=refresh or None,
+                prior=draft,
+            )
+        dossier, _ = merge_crop_dossier(
+            draft,
+            evidence_items_to_refs(evidence),
+            artifact_id=f"dossier-{uuid.uuid4().hex[:12]}",
+            now=datetime.now(timezone.utc),
+        )
+        return {
+            "plan": plan.model_dump(),
+            "evidence": [e.model_dump() for e in evidence[: self.top_k_evidence]],
+            "dossier": dossier.model_dump(mode="json"),
+            "validation_errors": last_errors or ["no_draft"],
+            "iterations": self.max_iterations,
+        }
+
     def run(self, task_prompt: str, input_vars: InputVars) -> dict[str, Any]:
         target_schema = FinalReport.model_json_schema()
         plan = self.plan(task_prompt, input_vars.model_dump(), target_schema)
@@ -284,6 +534,7 @@ class ResearchAgent:
                     "plan": plan.model_dump(),
                     "evidence": [e.model_dump() for e in evidence[: self.top_k_evidence]],
                     "final": draft,
+                    "validation_errors": [],
                     "iterations": iteration + 1,
                 }
 
@@ -305,6 +556,7 @@ class ResearchAgent:
             "plan": plan.model_dump(),
             "evidence": [e.model_dump() for e in evidence[: self.top_k_evidence]],
             "final": last_draft,
+            "validation_errors": missing if "missing" in locals() else ["no_draft"],
             "iterations": self.max_iterations,
             "warning": "Returned best-effort draft; claim-level evidence linking may still be incomplete or weak.",
         }
