@@ -394,6 +394,10 @@ def validate_claim_graph_detailed(bundle: ClaimGraphBundle) -> ClaimGraphValidat
 
 
 def validate_claim_graph(bundle: ClaimGraphBundle) -> list[str]:
+    """Return human-readable error messages only.
+
+    For error codes, warnings, and structured reports, use ``validate_claim_graph_detailed`` instead.
+    """
     r = validate_claim_graph_detailed(bundle)
     return [e.message for e in r.errors]
 

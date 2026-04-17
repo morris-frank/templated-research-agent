@@ -6,7 +6,8 @@ Pre-1.0: only the items listed here are treated as a stability contract. Interna
 
 **Claim graph (contracts)**
 
-- `research_agent.contracts.core.claim_graph` — graph models, `merge_claim_graph`, `validate_claim_graph`, `validate_claim_graph_detailed`, `ClaimGraphValidationResult`, `ValidationIssue`, `ClaimGraphDraft`, `ClaimGraphBundle`, etc.
+- `research_agent.contracts.core.claim_graph` — graph models, `merge_claim_graph`, `ClaimGraphValidationResult`, `ValidationIssue`, `ClaimGraphDraft`, `ClaimGraphBundle`, etc.
+- **Validation:** Prefer **`validate_claim_graph_detailed`** for new code (full structured report). **`validate_claim_graph`** returns only error message strings and is a thin wrapper around the same rules—convenient for quick checks or scripts.
 - `research_agent.contracts.renderers.markdown` — `render_crop_dossier_markdown`, `render_questionnaire_response_markdown`, `render_final_projection_markdown` (`style="customer"` | `"debug"`).
 - `research_agent.contracts.examples` — `build_agrinova_demo_bundle()` (canonical Agrinova demo graph).
 
@@ -30,13 +31,6 @@ Pre-1.0: only the items listed here are treated as a stability contract. Interna
   - `--demo` | `--input-json PATH`
   - `--validate-only`, `--write-json`, `--render-markdown`, `--render-style customer|debug`, `--print-summary`
 - `python -m research_agent` — same as `research-agent`
-
-## Deprecated shims (compatibility only)
-
-- Repo root `research_agent_prototype.py` — forwards to `research_agent.cli.research.main`
-- Repo root `claim_graph_prototype.py` — forwards to `research_agent.cli.claim_graph.main`
-
-Do not extend these files; new behavior belongs in `src/research_agent/`.
 
 ## Non-public modules
 
