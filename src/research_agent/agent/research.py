@@ -25,7 +25,10 @@ from research_agent.contracts.core.claim_graph import (
     validate_claim_graph,
 )
 from research_agent.retrieval.scoring import dedupe_evidence
-from research_agent.retrieval.sources import collect_evidence_for_plan
+from research_agent.retrieval.sources import (
+    collect_evidence_for_plan,
+    collect_evidence_for_queries,
+)
 
 
 def claim_lists(report: FinalReport) -> list[tuple[str, Claim]]:
@@ -192,6 +195,10 @@ class ResearchAgent:
     def collect_evidence(self, plan: PlanOut, input_vars: InputVars) -> list[EvidenceItem]:
         return collect_evidence_for_plan(plan, input_vars)
 
+    def collect_incremental_evidence(self, plan: PlanOut) -> list[EvidenceItem]:
+        """Gap-fill retrieval: plan queries only, no seed URL re-fetch."""
+        return collect_evidence_for_queries(plan)
+
     def run_claim_graph(self, task_prompt: str, input_vars: InputVars) -> dict[str, Any]:
         run_tag = uuid.uuid4().hex[:12]
         execution_context = ExecutionContext(
@@ -236,7 +243,7 @@ class ResearchAgent:
                 paper_queries=gap.paper_queries,
                 evidence_requirements=plan.evidence_requirements,
             )
-            new_evidence = self.collect_evidence(incr_plan, InputVars(topic=input_vars.topic, source_urls=[]))
+            new_evidence = self.collect_incremental_evidence(incr_plan)
             evidence = dedupe_evidence(evidence + new_evidence)
             time.sleep(0.5)
 
@@ -290,7 +297,7 @@ class ResearchAgent:
                 paper_queries=gap.paper_queries,
                 evidence_requirements=plan.evidence_requirements,
             )
-            new_evidence = self.collect_evidence(incr_plan, InputVars(topic=input_vars.topic, source_urls=[]))
+            new_evidence = self.collect_incremental_evidence(incr_plan)
             evidence = dedupe_evidence(evidence + new_evidence)
             time.sleep(0.5)
 

@@ -302,17 +302,15 @@ def retrieve_scholarly_by_query(query: str) -> list[EvidenceItem]:
     return dedupe_evidence(out)
 
 
-def collect_evidence_for_plan(plan: PlanOut, input_vars: InputVars) -> list[EvidenceItem]:
-    """Gather evidence from seed URLs, web queries, and paper queries; dedupe."""
+def collect_evidence_for_queries(plan: PlanOut) -> list[EvidenceItem]:
+    """Incremental retrieval: run plan web + paper queries only.
+
+    Use this for gap-fill passes where seed URLs were already fetched on the
+    initial retrieval and should not be re-requested.
+    """
     import sys
 
     evidence: list[EvidenceItem] = []
-
-    for url in input_vars.source_urls:
-        try:
-            evidence.extend(retrieve_scholarly_by_url(url))
-        except Exception as e:
-            print(f"[warn] seed URL retrieval failed for {url}: {e}", file=sys.stderr)
 
     for q in plan.web_queries:
         try:
@@ -326,4 +324,20 @@ def collect_evidence_for_plan(plan: PlanOut, input_vars: InputVars) -> list[Evid
         except Exception as e:
             print(f"[warn] paper query failed: {q}: {e}", file=sys.stderr)
 
+    return dedupe_evidence(evidence)
+
+
+def collect_evidence_for_plan(plan: PlanOut, input_vars: InputVars) -> list[EvidenceItem]:
+    """Initial retrieval: fetch seed URLs from ``input_vars`` then run plan queries."""
+    import sys
+
+    evidence: list[EvidenceItem] = []
+
+    for url in input_vars.source_urls:
+        try:
+            evidence.extend(retrieve_scholarly_by_url(url))
+        except Exception as e:
+            print(f"[warn] seed URL retrieval failed for {url}: {e}", file=sys.stderr)
+
+    evidence.extend(collect_evidence_for_queries(plan))
     return dedupe_evidence(evidence)
