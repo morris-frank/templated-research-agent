@@ -35,6 +35,7 @@ Pre-1.0: only the items listed here are treated as a stability contract. Interna
   - primary mode: default / `--final-report`, or `--dossier`
   - `--claim-graph` — optional sidecar from the same plan/evidence
   - `--render-markdown PATH` — dossier markdown rendering (`--dossier` only)
+  - `--cache-mode default|refresh|off`, `--cache-dir PATH` — retrieval cache controls
 - `python -m research_agent` — same as `research-agent`; **requires `[retrieval]`**
 - `claim-graph` → `research_agent.cli.claim_graph:main` — core install only
   - `--demo` | `--input-json PATH`

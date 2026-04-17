@@ -7,6 +7,7 @@ from typing import Any
 
 from research_agent.contracts.agronomy.input import DossierInputVars
 from research_agent.contracts.renderers.markdown import render_crop_dossier_markdown
+from research_agent.retrieval.cache import CacheSettings
 from research_agent.types import InputVars
 
 
@@ -55,6 +56,13 @@ def main() -> int:
         help="Also emit ClaimGraphBundle sidecar from same plan/evidence",
     )
     parser.add_argument("--render-markdown", type=str, help="Write rendered dossier markdown path (--dossier only)")
+    parser.add_argument(
+        "--cache-mode",
+        choices=["default", "refresh", "off"],
+        default="default",
+        help="Retrieval cache behavior for this run",
+    )
+    parser.add_argument("--cache-dir", type=str, help="Optional retrieval cache directory override")
     args = parser.parse_args()
 
     if not args.demo and not args.task_file:
@@ -72,7 +80,10 @@ def main() -> int:
     from research_agent.agent.llm import LLMClient
     from research_agent.agent.research import ResearchAgent
 
-    agent = ResearchAgent(llm=LLMClient())
+    agent = ResearchAgent(
+        llm=LLMClient(),
+        cache_settings=CacheSettings(mode=args.cache_mode, cache_dir=args.cache_dir),
+    )
     result = (
         agent.run_dossier(task_prompt, input_vars, dossier_input)
         if args.dossier

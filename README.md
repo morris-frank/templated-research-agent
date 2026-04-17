@@ -34,6 +34,20 @@ Environment (research agent): `OPENAI_API_KEY`, `TAVILY_API_KEY`; optional `OPEN
 
 `evidence_ids` in dossier outputs are run-local IDs (`E001`, `E002`, ...), valid within that run's `evidence_index`.
 
+### Retrieval caching
+
+`research-agent` now uses persistent retrieval caching by default to speed up repeat runs with similar inputs.
+
+- `--cache-mode default` (default): read and write cache
+- `--cache-mode refresh`: bypass cache reads and write fresh results
+- `--cache-mode off`: disable cache reads and writes for the run
+- `--cache-dir PATH`: override cache location (default `~/.cache/research-agent`)
+
+Cache behavior notes:
+- scope: retrieval + evidence collection only (no LLM response caching)
+- negative caching: exceptions/timeouts are not cached
+- top-level stale fallback: in `default` mode, if fresh aggregate collection fails and a stale aggregate exists, stale may be returned with a warning
+
 ### Live dossier example
 
 ```json

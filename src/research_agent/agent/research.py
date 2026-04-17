@@ -32,6 +32,7 @@ from research_agent.contracts.core.claim_graph import (
     validate_claim_graph,
 )
 from research_agent.retrieval.scoring import dedupe_evidence
+from research_agent.retrieval.cache import CacheSettings
 from research_agent.retrieval.sources import (
     collect_evidence_for_plan,
     collect_evidence_for_queries,
@@ -80,6 +81,7 @@ class ResearchAgent:
     llm: LLMClient
     max_iterations: int = 3
     top_k_evidence: int = 25
+    cache_settings: CacheSettings = CacheSettings()
 
     def plan(self, task_prompt: str, input_vars: dict[str, Any], target_schema: dict[str, Any]) -> PlanOut:
         payload = {
@@ -359,11 +361,11 @@ class ResearchAgent:
         return GapQueries.model_validate(out)
 
     def collect_evidence(self, plan: PlanOut, input_vars: InputVars) -> list[EvidenceItem]:
-        return collect_evidence_for_plan(plan, input_vars)
+        return collect_evidence_for_plan(plan, input_vars, cache_settings=self.cache_settings)
 
     def collect_incremental_evidence(self, plan: PlanOut) -> list[EvidenceItem]:
         """Gap-fill retrieval: plan queries only, no seed URL re-fetch."""
-        return collect_evidence_for_queries(plan)
+        return collect_evidence_for_queries(plan, cache_settings=self.cache_settings)
 
     def compose_claim_graph_from(
         self,

@@ -37,6 +37,8 @@ flowchart TB
 3. `ResearchAgent.draft` → `FinalReport` JSON (LLM).
 4. `ResearchAgent.evaluate` → schema + claim/evidence checks against retrieved IDs.
 
+Retrieval uses persistent on-disk cache controls (`--cache-mode`, `--cache-dir`) at the CLI boundary; cache scope is retrieval/evidence collection only (not LLM draft outputs).
+
 **Claim graph sidecar**
 
 1. Same plan + evidence as above.

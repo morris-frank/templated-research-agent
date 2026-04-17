@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+from datetime import datetime, timezone
 from urllib.parse import quote_plus, unquote
 
 import feedparser
@@ -9,11 +10,77 @@ from bs4 import BeautifulSoup
 
 from research_agent.types import EvidenceItem, InputVars, PlanOut
 from research_agent.retrieval.doi import extract_doi_from_text, extract_doi_from_url, normalize_doi
+from research_agent.retrieval.cache import (
+    CACHE_SCHEMA_VERSION,
+    EVIDENCE_SERIALIZATION_SCHEMA_VERSION,
+    SCORING_SCHEMA_VERSION,
+    CacheSettings,
+    cache_key,
+    get_cache,
+    normalize_url_for_cache,
+    should_read_cache,
+    should_write_cache,
+    TTL_AGGREGATE_SEC,
+    TTL_DOI_LOOKUP_SEC,
+    TTL_EMPTY_SHORT_SEC,
+    TTL_PAGE_METADATA_SEC,
+    TTL_PAPER_QUERY_SEC,
+    TTL_TAVILY_SEC,
+)
 from research_agent.retrieval.http import USER_AGENT, http_get
 from research_agent.retrieval.scoring import dedupe_evidence, score_evidence
 
 
-def tavily_search(query: str, max_results: int = 5) -> list[EvidenceItem]:
+def _base_cache_payload(**kwargs: object) -> dict[str, object]:
+    return {
+        "cache_schema": CACHE_SCHEMA_VERSION,
+        "scoring_schema": SCORING_SCHEMA_VERSION,
+        "evidence_serialization_schema": EVIDENCE_SERIALIZATION_SCHEMA_VERSION,
+        **kwargs,
+    }
+
+
+def _serialize_evidence_items(items: list[EvidenceItem]) -> list[dict]:
+    return [e.model_dump(mode="json") for e in items]
+
+
+def _deserialize_evidence_items(rows: list[dict]) -> list[EvidenceItem]:
+    return [EvidenceItem.model_validate(row) for row in rows]
+
+
+def _cache_get_rows(key: str, settings: CacheSettings) -> list[dict] | None:
+    if not should_read_cache(settings):
+        return None
+    cache = get_cache(settings.cache_dir)
+    return cache.get(key)
+
+
+def _cache_set_rows(key: str, rows: list[dict], ttl_sec: int, settings: CacheSettings) -> None:
+    if not should_write_cache(settings):
+        return
+    cache = get_cache(settings.cache_dir)
+    cache.set(key, rows, expire=ttl_sec)
+
+
+def _cache_set_optional_row(key: str, row: dict | None, ttl_sec: int, settings: CacheSettings) -> None:
+    if not should_write_cache(settings):
+        return
+    cache = get_cache(settings.cache_dir)
+    cache.set(key, row, expire=ttl_sec)
+
+
+def tavily_search(
+    query: str, max_results: int = 5, *, cache_settings: CacheSettings | None = None
+) -> list[EvidenceItem]:
+    settings = cache_settings or CacheSettings()
+    key = cache_key(
+        "tavily_search",
+        _base_cache_payload(query=query, max_results=max_results),
+    )
+    cached = _cache_get_rows(key, settings)
+    if cached is not None:
+        return _deserialize_evidence_items(cached)
+
     api_key = os.environ.get("TAVILY_API_KEY")
     if not api_key:
         raise RuntimeError("TAVILY_API_KEY is required")
@@ -49,10 +116,19 @@ def tavily_search(query: str, max_results: int = 5) -> list[EvidenceItem]:
         )
         item.score = score_evidence(item, query)
         results.append(item)
+    ttl = TTL_EMPTY_SHORT_SEC if not results else TTL_TAVILY_SEC
+    _cache_set_rows(key, _serialize_evidence_items(results), ttl, settings)
     return results
 
 
-def crossref_lookup_doi(doi: str) -> EvidenceItem | None:
+def crossref_lookup_doi(doi: str, *, cache_settings: CacheSettings | None = None) -> EvidenceItem | None:
+    settings = cache_settings or CacheSettings()
+    key = cache_key("crossref_lookup_doi", _base_cache_payload(doi=normalize_doi(doi) or doi))
+    if should_read_cache(settings):
+        cached = get_cache(settings.cache_dir).get(key)
+        if cached is not None:
+            return EvidenceItem.model_validate(cached) if cached else None
+
     url = f"https://api.crossref.org/works/{quote_plus(doi)}"
     r = http_get(url)
     msg = r.json().get("message", {})
@@ -81,10 +157,21 @@ def crossref_lookup_doi(doi: str) -> EvidenceItem | None:
         raw=msg,
     )
     item.score = score_evidence(item, doi)
-    return item if item.title else None
+    out = item if item.title else None
+    ttl = TTL_DOI_LOOKUP_SEC if out else TTL_EMPTY_SHORT_SEC
+    _cache_set_optional_row(key, out.model_dump(mode="json") if out else None, ttl, settings)
+    return out
 
 
-def crossref_search_title(title: str, rows: int = 5) -> list[EvidenceItem]:
+def crossref_search_title(
+    title: str, rows: int = 5, *, cache_settings: CacheSettings | None = None
+) -> list[EvidenceItem]:
+    settings = cache_settings or CacheSettings()
+    key = cache_key("crossref_search_title", _base_cache_payload(title=title, rows=rows))
+    cached = _cache_get_rows(key, settings)
+    if cached is not None:
+        return _deserialize_evidence_items(cached)
+
     r = http_get(
         "https://api.crossref.org/works",
         params={"query.title": title, "rows": rows},
@@ -117,14 +204,24 @@ def crossref_search_title(title: str, rows: int = 5) -> list[EvidenceItem]:
         )
         item.score = score_evidence(item, title)
         items.append(item)
+    ttl = TTL_EMPTY_SHORT_SEC if not items else TTL_PAPER_QUERY_SEC
+    _cache_set_rows(key, _serialize_evidence_items(items), ttl, settings)
     return items
 
 
-def openalex_lookup_doi(doi: str) -> EvidenceItem | None:
+def openalex_lookup_doi(doi: str, *, cache_settings: CacheSettings | None = None) -> EvidenceItem | None:
+    settings = cache_settings or CacheSettings()
+    key = cache_key("openalex_lookup_doi", _base_cache_payload(doi=normalize_doi(doi) or doi))
+    if should_read_cache(settings):
+        cached = get_cache(settings.cache_dir).get(key)
+        if cached is not None:
+            return EvidenceItem.model_validate(cached) if cached else None
+
     doi_url = f"https://doi.org/{doi}"
     r = http_get("https://api.openalex.org/works", params={"filter": f"doi:{doi_url}", "per-page": 1})
     rows = r.json().get("results", [])
     if not rows:
+        _cache_set_optional_row(key, None, TTL_EMPTY_SHORT_SEC, settings)
         return None
     row = rows[0]
     authors = [a.get("author", {}).get("display_name", "") for a in row.get("authorships", [])]
@@ -142,10 +239,21 @@ def openalex_lookup_doi(doi: str) -> EvidenceItem | None:
         raw=row,
     )
     item.score = score_evidence(item, doi)
-    return item if item.title else None
+    out = item if item.title else None
+    ttl = TTL_DOI_LOOKUP_SEC if out else TTL_EMPTY_SHORT_SEC
+    _cache_set_optional_row(key, out.model_dump(mode="json") if out else None, ttl, settings)
+    return out
 
 
-def openalex_search_title(title: str, rows: int = 5) -> list[EvidenceItem]:
+def openalex_search_title(
+    title: str, rows: int = 5, *, cache_settings: CacheSettings | None = None
+) -> list[EvidenceItem]:
+    settings = cache_settings or CacheSettings()
+    key = cache_key("openalex_search_title", _base_cache_payload(title=title, rows=rows))
+    cached = _cache_get_rows(key, settings)
+    if cached is not None:
+        return _deserialize_evidence_items(cached)
+
     r = http_get("https://api.openalex.org/works", params={"search": title, "per-page": rows})
     out = []
     for row in r.json().get("results", []):
@@ -165,10 +273,20 @@ def openalex_search_title(title: str, rows: int = 5) -> list[EvidenceItem]:
         )
         item.score = score_evidence(item, title)
         out.append(item)
+    ttl = TTL_EMPTY_SHORT_SEC if not out else TTL_PAPER_QUERY_SEC
+    _cache_set_rows(key, _serialize_evidence_items(out), ttl, settings)
     return out
 
 
-def arxiv_search(query: str, max_results: int = 5) -> list[EvidenceItem]:
+def arxiv_search(
+    query: str, max_results: int = 5, *, cache_settings: CacheSettings | None = None
+) -> list[EvidenceItem]:
+    settings = cache_settings or CacheSettings()
+    key = cache_key("arxiv_search", _base_cache_payload(query=query, max_results=max_results))
+    cached = _cache_get_rows(key, settings)
+    if cached is not None:
+        return _deserialize_evidence_items(cached)
+
     url = (
         "http://export.arxiv.org/api/query"
         f"?search_query=all:{quote_plus(query)}&start=0&max_results={max_results}"
@@ -191,13 +309,24 @@ def arxiv_search(query: str, max_results: int = 5) -> list[EvidenceItem]:
         )
         item.score = score_evidence(item, query)
         items.append(item)
+    ttl = TTL_EMPTY_SHORT_SEC if not items else TTL_PAPER_QUERY_SEC
+    _cache_set_rows(key, _serialize_evidence_items(items), ttl, settings)
     return items
 
 
-def fetch_page_metadata(url: str) -> EvidenceItem | None:
+def fetch_page_metadata(url: str, *, cache_settings: CacheSettings | None = None) -> EvidenceItem | None:
+    settings = cache_settings or CacheSettings()
+    normalized_url = normalize_url_for_cache(url)
+    key = cache_key("fetch_page_metadata", _base_cache_payload(url=normalized_url))
+    if should_read_cache(settings):
+        cached = get_cache(settings.cache_dir).get(key)
+        if cached is not None:
+            return EvidenceItem.model_validate(cached) if cached else None
+
     r = http_get(url, headers={"Accept": "text/html,application/xhtml+xml"}, timeout=30)
     ctype = r.headers.get("content-type", "")
     if "html" not in ctype:
+        _cache_set_optional_row(key, None, TTL_EMPTY_SHORT_SEC, settings)
         return None
 
     soup = BeautifulSoup(r.text, "html.parser")
@@ -239,17 +368,21 @@ def fetch_page_metadata(url: str) -> EvidenceItem | None:
         raw={},
     )
     item.score = score_evidence(item)
-    return item if item.title else None
+    out = item if item.title else None
+    ttl = TTL_PAGE_METADATA_SEC if out else TTL_EMPTY_SHORT_SEC
+    _cache_set_optional_row(key, out.model_dump(mode="json") if out else None, ttl, settings)
+    return out
 
 
-def retrieve_scholarly_by_url(url: str) -> list[EvidenceItem]:
+def retrieve_scholarly_by_url(url: str, *, cache_settings: CacheSettings | None = None) -> list[EvidenceItem]:
+    settings = cache_settings or CacheSettings()
     out: list[EvidenceItem] = []
 
     doi = extract_doi_from_url(url)
     if doi:
         for fn in (crossref_lookup_doi, openalex_lookup_doi):
             try:
-                item = fn(doi)
+                item = fn(doi, cache_settings=settings)
             except Exception:
                 item = None
             if item:
@@ -257,7 +390,7 @@ def retrieve_scholarly_by_url(url: str) -> list[EvidenceItem]:
 
     page_item = None
     try:
-        page_item = fetch_page_metadata(url)
+        page_item = fetch_page_metadata(url, cache_settings=settings)
     except Exception:
         page_item = None
     if page_item:
@@ -266,7 +399,7 @@ def retrieve_scholarly_by_url(url: str) -> list[EvidenceItem]:
         if page_item.doi and page_item.doi != doi:
             for fn in (crossref_lookup_doi, openalex_lookup_doi):
                 try:
-                    item = fn(page_item.doi)
+                    item = fn(page_item.doi, cache_settings=settings)
                 except Exception:
                     item = None
                 if item:
@@ -274,35 +407,39 @@ def retrieve_scholarly_by_url(url: str) -> list[EvidenceItem]:
 
         if page_item.title:
             try:
-                out.extend(crossref_search_title(page_item.title, rows=3))
+                out.extend(crossref_search_title(page_item.title, rows=3, cache_settings=settings))
             except Exception:
                 pass
             try:
-                out.extend(openalex_search_title(page_item.title, rows=3))
+                out.extend(openalex_search_title(page_item.title, rows=3, cache_settings=settings))
             except Exception:
                 pass
 
     return dedupe_evidence(out)
 
 
-def retrieve_scholarly_by_query(query: str) -> list[EvidenceItem]:
+def retrieve_scholarly_by_query(query: str, *, cache_settings: CacheSettings | None = None) -> list[EvidenceItem]:
+    settings = cache_settings or CacheSettings()
     out: list[EvidenceItem] = []
     try:
-        out.extend(crossref_search_title(query, rows=5))
+        out.extend(crossref_search_title(query, rows=5, cache_settings=settings))
     except Exception:
         pass
     try:
-        out.extend(openalex_search_title(query, rows=5))
+        out.extend(openalex_search_title(query, rows=5, cache_settings=settings))
     except Exception:
         pass
     try:
-        out.extend(arxiv_search(query, max_results=5))
+        out.extend(arxiv_search(query, max_results=5, cache_settings=settings))
     except Exception:
         pass
     return dedupe_evidence(out)
 
 
-def collect_evidence_for_queries(plan: PlanOut) -> list[EvidenceItem]:
+def collect_evidence_for_queries(
+    plan: PlanOut,
+    cache_settings: CacheSettings | None = None,
+) -> list[EvidenceItem]:
     """Incremental retrieval: run plan web + paper queries only.
 
     Use this for gap-fill passes where seed URLs were already fetched on the
@@ -310,34 +447,112 @@ def collect_evidence_for_queries(plan: PlanOut) -> list[EvidenceItem]:
     """
     import sys
 
+    settings = cache_settings or CacheSettings()
+    key = cache_key(
+        "collect_evidence_for_queries",
+        _base_cache_payload(
+            web_queries=plan.web_queries,
+            paper_queries=plan.paper_queries,
+        ),
+    )
+    stale_key = f"{key}:stale"
+    cache = get_cache(settings.cache_dir)
+    stale_before = cache.get(stale_key)
+    if settings.mode == "off":
+        print("cache off: collect_evidence_for_queries", file=sys.stderr)
+    elif settings.mode == "refresh":
+        print("cache refresh: collect_evidence_for_queries", file=sys.stderr)
+    else:
+        cached = cache.get(key)
+        if cached is not None:
+            print("cache hit: collect_evidence_for_queries", file=sys.stderr)
+            return _deserialize_evidence_items(cached)
+        print("cache miss: collect_evidence_for_queries", file=sys.stderr)
+
     evidence: list[EvidenceItem] = []
+    had_failure = False
 
     for q in plan.web_queries:
         try:
-            evidence.extend(tavily_search(q, max_results=5))
+            evidence.extend(tavily_search(q, max_results=5, cache_settings=settings))
         except Exception as e:
+            had_failure = True
             print(f"[warn] tavily query failed: {q}: {e}", file=sys.stderr)
 
     for q in plan.paper_queries:
         try:
-            evidence.extend(retrieve_scholarly_by_query(q))
+            evidence.extend(retrieve_scholarly_by_query(q, cache_settings=settings))
         except Exception as e:
+            had_failure = True
             print(f"[warn] paper query failed: {q}: {e}", file=sys.stderr)
 
-    return dedupe_evidence(evidence)
+    merged = dedupe_evidence(evidence)
+    rows = _serialize_evidence_items(merged)
+    if should_write_cache(settings) and not had_failure:
+        cache.set(key, rows, expire=TTL_AGGREGATE_SEC)
+        cache.set(stale_key, {"rows": rows, "stored_at": datetime.now(timezone.utc).isoformat()})
+    if had_failure and settings.mode == "default":
+        stale = stale_before
+        if stale and isinstance(stale, dict) and isinstance(stale.get("rows"), list):
+            print("cache stale_fallback: collect_evidence_for_queries", file=sys.stderr)
+            return _deserialize_evidence_items(stale["rows"])
+    return merged
 
 
-def collect_evidence_for_plan(plan: PlanOut, input_vars: InputVars) -> list[EvidenceItem]:
+def collect_evidence_for_plan(
+    plan: PlanOut,
+    input_vars: InputVars,
+    cache_settings: CacheSettings | None = None,
+) -> list[EvidenceItem]:
     """Initial retrieval: fetch seed URLs from ``input_vars`` then run plan queries."""
     import sys
 
+    settings = cache_settings or CacheSettings()
+    normalized_urls = [normalize_url_for_cache(url) for url in input_vars.source_urls]
+    key = cache_key(
+        "collect_evidence_for_plan",
+        _base_cache_payload(
+            topic=input_vars.topic,
+            company=input_vars.company,
+            region=input_vars.region,
+            source_urls=normalized_urls,
+            web_queries=plan.web_queries,
+            paper_queries=plan.paper_queries,
+        ),
+    )
+    stale_key = f"{key}:stale"
+    cache = get_cache(settings.cache_dir)
+    stale_before = cache.get(stale_key)
+    if settings.mode == "off":
+        print("cache off: collect_evidence_for_plan", file=sys.stderr)
+    elif settings.mode == "refresh":
+        print("cache refresh: collect_evidence_for_plan", file=sys.stderr)
+    else:
+        cached = cache.get(key)
+        if cached is not None:
+            print("cache hit: collect_evidence_for_plan", file=sys.stderr)
+            return _deserialize_evidence_items(cached)
+        print("cache miss: collect_evidence_for_plan", file=sys.stderr)
+
     evidence: list[EvidenceItem] = []
+    had_failure = False
 
     for url in input_vars.source_urls:
         try:
-            evidence.extend(retrieve_scholarly_by_url(url))
+            evidence.extend(retrieve_scholarly_by_url(url, cache_settings=settings))
         except Exception as e:
+            had_failure = True
             print(f"[warn] seed URL retrieval failed for {url}: {e}", file=sys.stderr)
 
-    evidence.extend(collect_evidence_for_queries(plan))
-    return dedupe_evidence(evidence)
+    evidence.extend(collect_evidence_for_queries(plan, cache_settings=settings))
+    merged = dedupe_evidence(evidence)
+    rows = _serialize_evidence_items(merged)
+    if should_write_cache(settings) and not had_failure:
+        cache.set(key, rows, expire=TTL_AGGREGATE_SEC)
+        cache.set(stale_key, {"rows": rows, "stored_at": datetime.now(timezone.utc).isoformat()})
+    if had_failure and settings.mode == "default":
+        stale = stale_before
+        if stale and isinstance(stale, dict) and isinstance(stale.get("rows"), list):
+            print("cache stale_fallback: collect_evidence_for_plan", file=sys.stderr)
+            return _deserialize_evidence_items(stale["rows"])
+    return merged
