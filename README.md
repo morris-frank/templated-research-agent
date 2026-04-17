@@ -35,7 +35,3 @@ claim-graph --demo --print-summary
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — layers and data flow.
 - [docs/PUBLIC_API.md](docs/PUBLIC_API.md) — supported imports and CLI surface.
 - [docs/REFACTORING.md](docs/REFACTORING.md) — migration from monoliths and repo layout.
-
-## Deprecated entry points
-
-Root **`research_agent_prototype.py`** and **`claim_graph_prototype.py`** are thin shims; prefer the console scripts above.
