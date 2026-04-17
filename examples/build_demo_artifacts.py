@@ -8,13 +8,23 @@ from pathlib import Path
 import yaml
 
 from research_agent.contracts.agronomy.dossier import (
+    CoverCropEffect,
     CropDossier,
+    HeuristicRule,
+    Intervention,
+    InterventionEffect,
     LifecycleStage,
+    LimitingFactor,
+    MicrobiomeFunction,
+    Pathogen,
     ProductionSystemContext,
     RotationRole,
+    SoilDependency,
+    YieldDriver,
 )
 from research_agent.contracts.core.artifact_meta import ArtifactMeta
 from research_agent.contracts.core.claims import Claim
+from research_agent.contracts.core.evidence import EvidenceRef
 from research_agent.contracts.core.questionnaire import (
     QuestionAnswer,
     QuestionnaireResponseSet,
@@ -103,6 +113,193 @@ def demo_dossier() -> CropDossier:
                 observables=[Claim(text="Residue distribution and grain quality outcomes", evidence_ids=["E026"])],
                 failure_modes=[Claim(text="Storage contamination risks", evidence_ids=["E027"])],
             ),
+        ],
+        yield_drivers=[
+            YieldDriver(
+                id="YD001",
+                name="Canopy nitrogen status",
+                mechanism=Claim(
+                    text="Canopy N drives photosynthetic capacity and grain fill duration.",
+                    evidence_ids=["E200"],
+                ),
+                measurable_proxies=["SPAD", "canopy NDRE", "tissue N"],
+                evidence_ids=["E200", "E201"],
+            ),
+            YieldDriver(
+                id="YD002",
+                name="Water availability during grain fill",
+                mechanism=Claim(
+                    text="Water stress during grain fill shortens the effective fill window.",
+                    evidence_ids=["E202"],
+                ),
+                measurable_proxies=["soil moisture", "ET estimates"],
+                evidence_ids=["E202"],
+            ),
+            YieldDriver(
+                id="YD003",
+                name="Disease pressure at flowering",
+                mechanism=Claim(
+                    text="Flowering-window disease pressure reduces grain number and quality.",
+                    evidence_ids=["E203"],
+                ),
+                measurable_proxies=["weather-based disease models", "scouting counts"],
+                evidence_ids=["E203"],
+            ),
+        ],
+        limiting_factors=[
+            LimitingFactor(
+                id="LF001",
+                factor="Early-season nitrogen deficiency",
+                stage="Vegetative",
+                symptoms=[
+                    Claim(
+                        text="Chlorotic lower leaves and reduced tillering",
+                        evidence_ids=["E210"],
+                    )
+                ],
+                evidence_ids=["E210"],
+            ),
+            LimitingFactor(
+                id="LF002",
+                factor="Fusarium head blight at flowering",
+                stage="Reproductive",
+                symptoms=[
+                    Claim(
+                        text="Bleached spikelets and DON accumulation",
+                        evidence_ids=["E211"],
+                    )
+                ],
+                evidence_ids=["E211"],
+            ),
+        ],
+        agronomist_heuristics=[
+            HeuristicRule(
+                id="HR001",
+                condition="low canopy N AND early vegetative",
+                action="apply split N top-dressing",
+                rationale=Claim(
+                    text="Split N applications align supply with vegetative demand peaks.",
+                    evidence_ids=["E220"],
+                ),
+                evidence_ids=["E220"],
+            ),
+        ],
+        interventions=[
+            Intervention(
+                id="IV001",
+                kind="input",
+                name="Seed treatment (fungicide + biocontrol)",
+                evidence_ids=["E230"],
+            ),
+            Intervention(
+                id="IV002",
+                kind="management",
+                name="Split nitrogen application",
+                evidence_ids=["E231"],
+            ),
+            Intervention(
+                id="IV003",
+                kind="genetic",
+                name="Fusarium-resistant cultivar",
+                evidence_ids=["E232"],
+            ),
+        ],
+        intervention_effects=[
+            InterventionEffect(
+                intervention_id="IV002",
+                target_ref="YD001",
+                effect="increase",
+                rationale=Claim(
+                    text="Split N keeps canopy N above critical through stem elongation.",
+                    evidence_ids=["E240"],
+                ),
+                evidence_ids=["E240"],
+            ),
+            InterventionEffect(
+                intervention_id="IV003",
+                target_ref="PG001",
+                effect="decrease",
+                rationale=Claim(
+                    text="Resistant cultivars reduce Fusarium severity under conducive weather.",
+                    evidence_ids=["E241"],
+                ),
+                evidence_ids=["E241"],
+            ),
+        ],
+        pathogens=[
+            Pathogen(
+                id="PG001",
+                name="Fusarium graminearum",
+                pressure_conditions=["warm, humid flowering window"],
+                affected_stages=["Reproductive"],
+                evidence_ids=["E250"],
+            ),
+            Pathogen(
+                id="PG002",
+                name="Septoria tritici",
+                pressure_conditions=["prolonged leaf wetness"],
+                affected_stages=["Vegetative", "Reproductive"],
+                evidence_ids=["E251"],
+            ),
+        ],
+        soil_dependencies=[
+            SoilDependency(
+                id="SD001",
+                variable="pH",
+                role=Claim(
+                    text="Soil pH governs micronutrient availability and Fusarium inoculum dynamics.",
+                    evidence_ids=["E260"],
+                ),
+                evidence_ids=["E260"],
+            ),
+        ],
+        microbiome_roles=[
+            MicrobiomeFunction(
+                id="MB001",
+                function="Soil pathogen suppression",
+                importance=Claim(
+                    text="Suppressive soils reduce Fusarium inoculum load season over season.",
+                    evidence_ids=["E270"],
+                ),
+                evidence_ids=["E270"],
+            ),
+        ],
+        cover_crop_effects=[
+            CoverCropEffect(
+                cover_crop="Mustard",
+                target_ref="SD001",
+                effect=Claim(
+                    text="Brassica cover crops can shift soil microbial communities and suppress some soil pathogens.",
+                    evidence_ids=["E280"],
+                ),
+                evidence_ids=["E280"],
+            ),
+        ],
+        evidence_index=[
+            EvidenceRef(
+                id=eid,
+                source_type="paper",
+                title=f"Demo evidence {eid}",
+                url="https://example.org/evidence",
+            )
+            for eid in [
+                "E001", "E002", "E003",
+                "E010", "E011", "E012", "E013", "E014", "E015",
+                "E016", "E017", "E018", "E019", "E020", "E021",
+                "E022", "E023", "E024", "E025", "E026", "E027",
+                "E200", "E201", "E202", "E203",
+                "E210", "E211",
+                "E220",
+                "E230", "E231", "E232",
+                "E240", "E241",
+                "E250", "E251",
+                "E260", "E270", "E280",
+            ]
+        ],
+        confidence=0.72,
+        open_questions=[
+            "Which microbiome signals best predict Fusarium suppression at field scale?",
+            "Does split-N interact with resistant-cultivar deployment on DON accumulation?",
         ],
     )
 

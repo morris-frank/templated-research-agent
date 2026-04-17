@@ -13,7 +13,9 @@ Pre-1.0: only the items listed here are treated as a stability contract. Interna
 
 **Agronomy / narrative contracts**
 
-- `research_agent.contracts.agronomy.*`, `research_agent.contracts.core.claims`, `research_agent.contracts.core.questionnaire`, `research_agent.contracts.core.evidence`, `research_agent.contracts.core.artifact_meta` — dossier and questionnaire shapes.
+- `research_agent.contracts.agronomy.dossier` — `CropDossier`, `LifecycleStage`, `ProductionSystemContext`, `RotationRole`, and the agronomic-model layer: `YieldDriver`, `LimitingFactor`, `HeuristicRule`, `Intervention`, `InterventionEffect`, `Pathogen`, `BeneficialOrganism`, `SoilDependency`, `MicrobiomeFunction`, `CoverCropEffect`. All new fields on `CropDossier` are optional and default empty; pre-existing dossiers remain valid.
+- `research_agent.contracts.agronomy.validation` — `validate_crop_dossier_detailed` (structured), `validate_crop_dossier` (messages-only convenience), `DossierThresholds`, `CropDossierValidationResult`. Errors-only today; same `ValidationIssue` shape as the claim-graph validator.
+- `research_agent.contracts.core.claims`, `research_agent.contracts.core.questionnaire`, `research_agent.contracts.core.evidence`, `research_agent.contracts.core.artifact_meta` — shared claim/questionnaire/evidence/meta shapes.
 
 **Agent loop**
 

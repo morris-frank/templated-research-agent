@@ -9,6 +9,7 @@
 5. **Demo ownership** — `build_agrinova_demo_bundle()` only in `research_agent.contracts.examples.agrinova`, re-exported from `research_agent.contracts.examples`. The `claim-graph` CLI imports it; it does not embed demo data.
 6. `claim_graph_bridge.py` — explicit name for `EvidenceItem` → `EvidenceRecord` mapping (avoids a vague `bridge.py`).
 7. **Legacy `contracts_lib_example/`** — removed from this repo; code lives under `src/research_agent/contracts` and `examples/`. Old `from contracts....` imports → `from research_agent.contracts....`.
+8. **Dossier agronomic-model layer (additive, non-breaking).** `CropDossier` gained `yield_drivers`, `limiting_factors`, `agronomist_heuristics`, `interventions`, `intervention_effects`, `pathogens`, `beneficials`, `soil_dependencies`, `microbiome_roles`, `cover_crop_effects`, `evidence_index`, `confidence`, `open_questions`. All default to empty, so pre-existing `CropDossier` JSON still validates. A companion `contracts/agronomy/validation.py` mirrors the claim-graph validator shape (`validate_crop_dossier_detailed` + coded `ValidationIssue` errors) and carries configurable minimums via `DossierThresholds`. Intervention→target links use IDs (`intervention_id`, `target_ref` → `YieldDriver.id` / `Pathogen.id` / `SoilDependency.id` / `MicrobiomeFunction.id` / `LimitingFactor.id`), not free-form strings. Evidence references use the existing `EvidenceRef`; no new evidence type was introduced.
 
 ## Breaking changes (historical migration)
 

@@ -49,6 +49,12 @@ flowchart TB
 
 - Loads a bundle from `--input-json` or the canonical `build_agrinova_demo_bundle()` in `research_agent.contracts.examples` (not implemented inside the CLI).
 
+**Agronomy dossier**
+
+- `contracts/agronomy/dossier.py` carries the full `CropDossier` shape: production context, lifecycle ontology, an agronomic-model layer (`YieldDriver`, `LimitingFactor`, `HeuristicRule`), an intervention layer (`Intervention` + ID-linked `InterventionEffect`), biotic risks (`Pathogen`, `BeneficialOrganism`), soil/microbiome relevance, `CoverCropEffect`, and a local `evidence_index` of `EvidenceRef`s.
+- `contracts/agronomy/validation.py` mirrors the claim-graph validator: `validate_crop_dossier_detailed` returns coded `ValidationIssue` errors (no warnings yet) and enforces configurable minimums via `DossierThresholds` (yield drivers / interventions / pathogens, evidence-linkage fraction, intervention-effect FK integrity).
+- Rendering is centralized in `contracts/renderers/markdown.py::render_crop_dossier_markdown`; new sections are emitted only when their list is non-empty so legacy dossiers render unchanged.
+
 ## Replacing components
 
 

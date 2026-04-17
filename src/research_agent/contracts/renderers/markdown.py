@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from typing import Literal
 
-from research_agent.contracts.agronomy.dossier import CropDossier
+from research_agent.contracts.agronomy.dossier import (
+    CropDossier,
+    Intervention,
+)
 from research_agent.contracts.core.claim_graph import ClaimGraphBundle, FinalProjection
 from research_agent.contracts.core.questionnaire import QuestionnaireResponseSet
 
@@ -17,6 +20,34 @@ def _claim_lines(items: list) -> str:
             suffix = f" [evidence: {', '.join(item.evidence_ids)}]"
         lines.append(f"- {item.text}{suffix}")
     return "\n".join(lines)
+
+
+def _claim_inline(claim) -> str:
+    ev = f" [evidence: {', '.join(claim.evidence_ids)}]" if claim.evidence_ids else ""
+    return f"{claim.text}{ev}"
+
+
+def _evidence_suffix(evidence_ids: list[str]) -> str:
+    return f" [evidence: {', '.join(evidence_ids)}]" if evidence_ids else ""
+
+
+def _resolve_target(dossier: CropDossier, target_ref: str) -> str:
+    for d in dossier.yield_drivers:
+        if d.id == target_ref:
+            return f"yield driver: {d.name}"
+    for p in dossier.pathogens:
+        if p.id == target_ref:
+            return f"pathogen: {p.name}"
+    for s in dossier.soil_dependencies:
+        if s.id == target_ref:
+            return f"soil: {s.variable}"
+    for m in dossier.microbiome_roles:
+        if m.id == target_ref:
+            return f"microbiome: {m.function}"
+    for lf in dossier.limiting_factors:
+        if lf.id == target_ref:
+            return f"limiting factor: {lf.factor}"
+    return target_ref
 
 
 def render_crop_dossier_markdown(dossier: CropDossier) -> str:
@@ -65,6 +96,117 @@ def render_crop_dossier_markdown(dossier: CropDossier) -> str:
         lines.append(
             f"| {stage.stage} | {description} | {key_decisions} | {observables} | {failure_modes} |"
         )
+
+    if dossier.yield_drivers:
+        lines.extend(["", "### Yield Drivers", "",
+                      "| Name | Mechanism | Proxies | Evidence |",
+                      "| --- | --- | --- | --- |"])
+        for d in dossier.yield_drivers:
+            proxies = "; ".join(d.measurable_proxies) or "-"
+            ev = ", ".join(sorted(set(d.evidence_ids) | set(d.mechanism.evidence_ids))) or "-"
+            lines.append(f"| {d.name} | {d.mechanism.text} | {proxies} | {ev} |")
+
+    if dossier.limiting_factors:
+        lines.extend(["", "### Limiting Factors", "",
+                      "| Factor | Stage | Symptoms | Evidence |",
+                      "| --- | --- | --- | --- |"])
+        for lf in dossier.limiting_factors:
+            stage = lf.stage or "-"
+            symptoms = "; ".join(s.text for s in lf.symptoms) or "-"
+            ev = ", ".join(lf.evidence_ids) or "-"
+            lines.append(f"| {lf.factor} | {stage} | {symptoms} | {ev} |")
+
+    if dossier.agronomist_heuristics:
+        lines.extend(["", "### Agronomist Heuristics", ""])
+        for h in dossier.agronomist_heuristics:
+            lines.append(
+                f"- If `{h.condition}` then **{h.action}** "
+                f"(rationale: {_claim_inline(h.rationale)})"
+                f"{_evidence_suffix(h.evidence_ids)}"
+            )
+
+    if dossier.interventions:
+        lines.extend(["", "### Interventions", "",
+                      "| Kind | Name | Evidence |",
+                      "| --- | --- | --- |"])
+        for iv in dossier.interventions:
+            ev = ", ".join(iv.evidence_ids) or "-"
+            lines.append(f"| {iv.kind} | {iv.name} | {ev} |")
+
+    if dossier.intervention_effects:
+        by_id: dict[str, Intervention] = {iv.id: iv for iv in dossier.interventions}
+        lines.extend(["", "### Intervention Effects", ""])
+        for eff in dossier.intervention_effects:
+            iv = by_id.get(eff.intervention_id)
+            iv_label = iv.name if iv else eff.intervention_id
+            target_label = _resolve_target(dossier, eff.target_ref)
+            rationale = (
+                f" — rationale: {_claim_inline(eff.rationale)}"
+                if eff.rationale is not None
+                else ""
+            )
+            lines.append(
+                f"- **{iv_label}** {eff.effect} {target_label}"
+                f"{rationale}{_evidence_suffix(eff.evidence_ids)}"
+            )
+
+    if dossier.pathogens or dossier.beneficials:
+        lines.extend(["", "### Biotic Risks", ""])
+        if dossier.pathogens:
+            lines.append("**Pathogens**")
+            lines.append("")
+            for p in dossier.pathogens:
+                conditions = "; ".join(p.pressure_conditions) or "-"
+                stages = ", ".join(p.affected_stages) or "-"
+                lines.append(
+                    f"- {p.name} — pressure: {conditions}; stages: {stages}"
+                    f"{_evidence_suffix(p.evidence_ids)}"
+                )
+            lines.append("")
+        if dossier.beneficials:
+            lines.append("**Beneficials**")
+            lines.append("")
+            for b in dossier.beneficials:
+                lines.append(
+                    f"- {b.name} — {b.function}{_evidence_suffix(b.evidence_ids)}"
+                )
+
+    if dossier.soil_dependencies or dossier.microbiome_roles:
+        lines.extend(["", "### Soil & Microbiome", ""])
+        if dossier.soil_dependencies:
+            lines.append("**Soil dependencies**")
+            lines.append("")
+            for s in dossier.soil_dependencies:
+                lines.append(
+                    f"- {s.variable} — {_claim_inline(s.role)}"
+                    f"{_evidence_suffix(s.evidence_ids)}"
+                )
+            lines.append("")
+        if dossier.microbiome_roles:
+            lines.append("**Microbiome functions**")
+            lines.append("")
+            for m in dossier.microbiome_roles:
+                lines.append(
+                    f"- {m.function} — {_claim_inline(m.importance)}"
+                    f"{_evidence_suffix(m.evidence_ids)}"
+                )
+
+    if dossier.cover_crop_effects:
+        lines.extend(["", "### Cover Crop Effects", ""])
+        for cc in dossier.cover_crop_effects:
+            target_label = _resolve_target(dossier, cc.target_ref)
+            lines.append(
+                f"- {cc.cover_crop} → {target_label}: {_claim_inline(cc.effect)}"
+                f"{_evidence_suffix(cc.evidence_ids)}"
+            )
+
+    if dossier.open_questions:
+        lines.extend(["", "### Open Questions", ""])
+        for q in dossier.open_questions:
+            lines.append(f"- {q}")
+
+    if dossier.confidence:
+        lines.extend(["", "### Confidence", "", f"- {dossier.confidence:.2f}"])
 
     return "\n".join(lines)
 

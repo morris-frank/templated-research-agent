@@ -2,8 +2,8 @@
   "meta": {
     "artifact_id": "dossier-wheat",
     "artifact_type": "crop_dossier",
-    "created_at": "2026-04-16T12:09:57.081184Z",
-    "updated_at": "2026-04-16T12:09:57.081289Z",
+    "created_at": "2026-04-17T07:08:27.768147Z",
+    "updated_at": "2026-04-17T07:08:27.768252Z",
     "version": "0.1.0",
     "source_run_id": null,
     "tags": [
@@ -20,7 +20,7 @@
     "inoculant validation"
   ],
   "priority_tier": "T1",
-  "last_updated": "2026-04-16",
+  "last_updated": "2026-04-17",
   "production_system_context": {
     "core_regions": [
       "EU",
@@ -296,5 +296,851 @@
         }
       ]
     }
+  ],
+  "yield_drivers": [
+    {
+      "id": "YD001",
+      "name": "Canopy nitrogen status",
+      "mechanism": {
+        "text": "Canopy N drives photosynthetic capacity and grain fill duration.",
+        "evidence_ids": [
+          "E200"
+        ],
+        "evidence_urls": [],
+        "support": "direct",
+        "notes": null
+      },
+      "measurable_proxies": [
+        "SPAD",
+        "canopy NDRE",
+        "tissue N"
+      ],
+      "evidence_ids": [
+        "E200",
+        "E201"
+      ]
+    },
+    {
+      "id": "YD002",
+      "name": "Water availability during grain fill",
+      "mechanism": {
+        "text": "Water stress during grain fill shortens the effective fill window.",
+        "evidence_ids": [
+          "E202"
+        ],
+        "evidence_urls": [],
+        "support": "direct",
+        "notes": null
+      },
+      "measurable_proxies": [
+        "soil moisture",
+        "ET estimates"
+      ],
+      "evidence_ids": [
+        "E202"
+      ]
+    },
+    {
+      "id": "YD003",
+      "name": "Disease pressure at flowering",
+      "mechanism": {
+        "text": "Flowering-window disease pressure reduces grain number and quality.",
+        "evidence_ids": [
+          "E203"
+        ],
+        "evidence_urls": [],
+        "support": "direct",
+        "notes": null
+      },
+      "measurable_proxies": [
+        "weather-based disease models",
+        "scouting counts"
+      ],
+      "evidence_ids": [
+        "E203"
+      ]
+    }
+  ],
+  "limiting_factors": [
+    {
+      "id": "LF001",
+      "factor": "Early-season nitrogen deficiency",
+      "stage": "Vegetative",
+      "symptoms": [
+        {
+          "text": "Chlorotic lower leaves and reduced tillering",
+          "evidence_ids": [
+            "E210"
+          ],
+          "evidence_urls": [],
+          "support": "direct",
+          "notes": null
+        }
+      ],
+      "evidence_ids": [
+        "E210"
+      ]
+    },
+    {
+      "id": "LF002",
+      "factor": "Fusarium head blight at flowering",
+      "stage": "Reproductive",
+      "symptoms": [
+        {
+          "text": "Bleached spikelets and DON accumulation",
+          "evidence_ids": [
+            "E211"
+          ],
+          "evidence_urls": [],
+          "support": "direct",
+          "notes": null
+        }
+      ],
+      "evidence_ids": [
+        "E211"
+      ]
+    }
+  ],
+  "agronomist_heuristics": [
+    {
+      "id": "HR001",
+      "condition": "low canopy N AND early vegetative",
+      "action": "apply split N top-dressing",
+      "rationale": {
+        "text": "Split N applications align supply with vegetative demand peaks.",
+        "evidence_ids": [
+          "E220"
+        ],
+        "evidence_urls": [],
+        "support": "direct",
+        "notes": null
+      },
+      "evidence_ids": [
+        "E220"
+      ]
+    }
+  ],
+  "interventions": [
+    {
+      "id": "IV001",
+      "kind": "input",
+      "name": "Seed treatment (fungicide + biocontrol)",
+      "evidence_ids": [
+        "E230"
+      ]
+    },
+    {
+      "id": "IV002",
+      "kind": "management",
+      "name": "Split nitrogen application",
+      "evidence_ids": [
+        "E231"
+      ]
+    },
+    {
+      "id": "IV003",
+      "kind": "genetic",
+      "name": "Fusarium-resistant cultivar",
+      "evidence_ids": [
+        "E232"
+      ]
+    }
+  ],
+  "intervention_effects": [
+    {
+      "intervention_id": "IV002",
+      "target_ref": "YD001",
+      "effect": "increase",
+      "rationale": {
+        "text": "Split N keeps canopy N above critical through stem elongation.",
+        "evidence_ids": [
+          "E240"
+        ],
+        "evidence_urls": [],
+        "support": "direct",
+        "notes": null
+      },
+      "evidence_ids": [
+        "E240"
+      ]
+    },
+    {
+      "intervention_id": "IV003",
+      "target_ref": "PG001",
+      "effect": "decrease",
+      "rationale": {
+        "text": "Resistant cultivars reduce Fusarium severity under conducive weather.",
+        "evidence_ids": [
+          "E241"
+        ],
+        "evidence_urls": [],
+        "support": "direct",
+        "notes": null
+      },
+      "evidence_ids": [
+        "E241"
+      ]
+    }
+  ],
+  "pathogens": [
+    {
+      "id": "PG001",
+      "name": "Fusarium graminearum",
+      "pressure_conditions": [
+        "warm, humid flowering window"
+      ],
+      "affected_stages": [
+        "Reproductive"
+      ],
+      "evidence_ids": [
+        "E250"
+      ]
+    },
+    {
+      "id": "PG002",
+      "name": "Septoria tritici",
+      "pressure_conditions": [
+        "prolonged leaf wetness"
+      ],
+      "affected_stages": [
+        "Vegetative",
+        "Reproductive"
+      ],
+      "evidence_ids": [
+        "E251"
+      ]
+    }
+  ],
+  "beneficials": [],
+  "soil_dependencies": [
+    {
+      "id": "SD001",
+      "variable": "pH",
+      "role": {
+        "text": "Soil pH governs micronutrient availability and Fusarium inoculum dynamics.",
+        "evidence_ids": [
+          "E260"
+        ],
+        "evidence_urls": [],
+        "support": "direct",
+        "notes": null
+      },
+      "evidence_ids": [
+        "E260"
+      ]
+    }
+  ],
+  "microbiome_roles": [
+    {
+      "id": "MB001",
+      "function": "Soil pathogen suppression",
+      "importance": {
+        "text": "Suppressive soils reduce Fusarium inoculum load season over season.",
+        "evidence_ids": [
+          "E270"
+        ],
+        "evidence_urls": [],
+        "support": "direct",
+        "notes": null
+      },
+      "evidence_ids": [
+        "E270"
+      ]
+    }
+  ],
+  "cover_crop_effects": [
+    {
+      "cover_crop": "Mustard",
+      "target_ref": "SD001",
+      "effect": {
+        "text": "Brassica cover crops can shift soil microbial communities and suppress some soil pathogens.",
+        "evidence_ids": [
+          "E280"
+        ],
+        "evidence_urls": [],
+        "support": "direct",
+        "notes": null
+      },
+      "evidence_ids": [
+        "E280"
+      ]
+    }
+  ],
+  "evidence_index": [
+    {
+      "id": "E001",
+      "source_type": "paper",
+      "title": "Demo evidence E001",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E002",
+      "source_type": "paper",
+      "title": "Demo evidence E002",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E003",
+      "source_type": "paper",
+      "title": "Demo evidence E003",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E010",
+      "source_type": "paper",
+      "title": "Demo evidence E010",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E011",
+      "source_type": "paper",
+      "title": "Demo evidence E011",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E012",
+      "source_type": "paper",
+      "title": "Demo evidence E012",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E013",
+      "source_type": "paper",
+      "title": "Demo evidence E013",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E014",
+      "source_type": "paper",
+      "title": "Demo evidence E014",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E015",
+      "source_type": "paper",
+      "title": "Demo evidence E015",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E016",
+      "source_type": "paper",
+      "title": "Demo evidence E016",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E017",
+      "source_type": "paper",
+      "title": "Demo evidence E017",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E018",
+      "source_type": "paper",
+      "title": "Demo evidence E018",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E019",
+      "source_type": "paper",
+      "title": "Demo evidence E019",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E020",
+      "source_type": "paper",
+      "title": "Demo evidence E020",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E021",
+      "source_type": "paper",
+      "title": "Demo evidence E021",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E022",
+      "source_type": "paper",
+      "title": "Demo evidence E022",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E023",
+      "source_type": "paper",
+      "title": "Demo evidence E023",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E024",
+      "source_type": "paper",
+      "title": "Demo evidence E024",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E025",
+      "source_type": "paper",
+      "title": "Demo evidence E025",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E026",
+      "source_type": "paper",
+      "title": "Demo evidence E026",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E027",
+      "source_type": "paper",
+      "title": "Demo evidence E027",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E200",
+      "source_type": "paper",
+      "title": "Demo evidence E200",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E201",
+      "source_type": "paper",
+      "title": "Demo evidence E201",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E202",
+      "source_type": "paper",
+      "title": "Demo evidence E202",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E203",
+      "source_type": "paper",
+      "title": "Demo evidence E203",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E210",
+      "source_type": "paper",
+      "title": "Demo evidence E210",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E211",
+      "source_type": "paper",
+      "title": "Demo evidence E211",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E220",
+      "source_type": "paper",
+      "title": "Demo evidence E220",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E230",
+      "source_type": "paper",
+      "title": "Demo evidence E230",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E231",
+      "source_type": "paper",
+      "title": "Demo evidence E231",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E232",
+      "source_type": "paper",
+      "title": "Demo evidence E232",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E240",
+      "source_type": "paper",
+      "title": "Demo evidence E240",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E241",
+      "source_type": "paper",
+      "title": "Demo evidence E241",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E250",
+      "source_type": "paper",
+      "title": "Demo evidence E250",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E251",
+      "source_type": "paper",
+      "title": "Demo evidence E251",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E260",
+      "source_type": "paper",
+      "title": "Demo evidence E260",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E270",
+      "source_type": "paper",
+      "title": "Demo evidence E270",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    },
+    {
+      "id": "E280",
+      "source_type": "paper",
+      "title": "Demo evidence E280",
+      "url": "https://example.org/evidence",
+      "snippet": "",
+      "publisher": null,
+      "authors": [],
+      "year": null,
+      "doi": null,
+      "accessed_at": null,
+      "score": 0.0,
+      "query": null,
+      "notes": null
+    }
+  ],
+  "confidence": 0.72,
+  "open_questions": [
+    "Which microbiome signals best predict Fusarium suppression at field scale?",
+    "Does split-N interact with resistant-cultivar deployment on DON accumulation?"
   ]
 }
