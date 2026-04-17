@@ -4,9 +4,7 @@ import argparse
 import json
 from typing import Any
 
-from research_agent.agent.llm import LLMClient
-from research_agent.agent.research import ResearchAgent
-from research_agent.agent.schemas import InputVars
+from research_agent.types import InputVars
 
 
 def demo_payload() -> tuple[str, InputVars]:
@@ -51,6 +49,9 @@ def main() -> int:
         task_prompt, input_vars = demo_payload()
     else:
         task_prompt, input_vars = load_task_file(args.task_file)
+
+    from research_agent.agent.llm import LLMClient
+    from research_agent.agent.research import ResearchAgent
 
     agent = ResearchAgent(llm=LLMClient())
     result = agent.run_claim_graph(task_prompt, input_vars) if args.claim_graph else agent.run(task_prompt, input_vars)

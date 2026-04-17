@@ -4,7 +4,7 @@
 
 1. **Single package** `research_agent` under `src/`, installable via root `pyproject.toml` (`research-agent` distribution name).
 2. **No `sys.path` hacks** — contracts live in `research_agent.contracts`; the research agent imports them normally.
-3. **One claim-graph validator** — all rules in `contracts/core/claim_graph.py`, implemented once in `validate_claim_graph_detailed`. `validate_claim_graph` is a thin wrapper returning `list[str]` messages for convenience; prefer `validate_claim_graph_detailed` for new code (see `PUBLIC_API.md`).
+3. **One claim-graph validator** — all rules in `contracts/core/claim_graph.py`, implemented once in `validate_claim_graph_detailed`, which returns an errors-only `ClaimGraphValidationResult` (`ok` + `errors: list[ValidationIssue]`). `validate_claim_graph` is a thin wrapper returning `list[str]` messages for convenience. Warnings are intentionally not modeled until a rule actually needs them.
 4. **One projection renderer** — `render_final_projection_markdown(..., style="customer"|"debug")` subsumes the old standalone debug layout.
 5. **Demo ownership** — `build_agrinova_demo_bundle()` only in `research_agent.contracts.examples.agrinova`, re-exported from `research_agent.contracts.examples`. The `claim-graph` CLI imports it; it does not embed demo data.
 6. `claim_graph_bridge.py` — explicit name for `EvidenceItem` → `EvidenceRecord` mapping (avoids a vague `bridge.py`).

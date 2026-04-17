@@ -129,10 +129,16 @@
       "claim_id": "C1",
       "text": "The sampled soils are chemically strong.",
       "claim_kind": "observation",
-      "scope": {
-        "customer": "Agrinova",
-        "sample_set_id": "agrinova-pilot-1"
-      },
+      "scope": [
+        {
+          "key": "customer",
+          "value": "Agrinova"
+        },
+        {
+          "key": "sample_set_id",
+          "value": "agrinova-pilot-1"
+        }
+      ],
       "confidence": "high",
       "status": "supported"
     },
@@ -140,10 +146,16 @@
       "claim_id": "C2",
       "text": "The sampled soils are biologically underperforming.",
       "claim_kind": "observation",
-      "scope": {
-        "customer": "Agrinova",
-        "sample_set_id": "agrinova-pilot-1"
-      },
+      "scope": [
+        {
+          "key": "customer",
+          "value": "Agrinova"
+        },
+        {
+          "key": "sample_set_id",
+          "value": "agrinova-pilot-1"
+        }
+      ],
       "confidence": "high",
       "status": "supported"
     },
@@ -151,10 +163,16 @@
       "claim_id": "C3",
       "text": "The main limiting signal in this pilot appears biological rather than chemical.",
       "claim_kind": "inference",
-      "scope": {
-        "customer": "Agrinova",
-        "sample_set_id": "agrinova-pilot-1"
-      },
+      "scope": [
+        {
+          "key": "customer",
+          "value": "Agrinova"
+        },
+        {
+          "key": "sample_set_id",
+          "value": "agrinova-pilot-1"
+        }
+      ],
       "confidence": "medium",
       "status": "supported"
     },
@@ -162,9 +180,12 @@
       "claim_id": "C4",
       "text": "Agrinova's highest-value job is product validation for biological inputs rather than generic soil-health reporting alone.",
       "claim_kind": "inference",
-      "scope": {
-        "customer": "Agrinova"
-      },
+      "scope": [
+        {
+          "key": "customer",
+          "value": "Agrinova"
+        }
+      ],
       "confidence": "medium",
       "status": "supported"
     },
@@ -172,9 +193,12 @@
       "claim_id": "C5",
       "text": "A higher-value follow-on engagement would test inoculant establishment and product efficacy explicitly.",
       "claim_kind": "recommendation",
-      "scope": {
-        "customer": "Agrinova"
-      },
+      "scope": [
+        {
+          "key": "customer",
+          "value": "Agrinova"
+        }
+      ],
       "confidence": "medium",
       "status": "supported"
     },
@@ -182,9 +206,12 @@
       "claim_id": "C6",
       "text": "Restoring fungal biomass and AMF is a plausible agronomic intervention direction.",
       "claim_kind": "recommendation",
-      "scope": {
-        "customer": "Agrinova"
-      },
+      "scope": [
+        {
+          "key": "customer",
+          "value": "Agrinova"
+        }
+      ],
       "confidence": "medium",
       "status": "supported"
     }

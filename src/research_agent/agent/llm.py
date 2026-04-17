@@ -5,7 +5,6 @@ import json
 import os
 from typing import Any
 
-from openai import OpenAI
 from pydantic import BaseModel
 
 
@@ -40,6 +39,8 @@ def _patch_json_schema_for_openai_strict(schema: dict[str, Any]) -> dict[str, An
 
 class LLMClient:
     def __init__(self, model: str | None = None):
+        from openai import OpenAI
+
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
             raise RuntimeError("OPENAI_API_KEY is required")

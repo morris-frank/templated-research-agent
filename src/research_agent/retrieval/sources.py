@@ -7,7 +7,7 @@ from urllib.parse import quote_plus, unquote
 import feedparser
 from bs4 import BeautifulSoup
 
-from research_agent.agent.schemas import EvidenceItem, InputVars, PlanOut
+from research_agent.types import EvidenceItem, InputVars, PlanOut
 from research_agent.retrieval.doi import extract_doi_from_text, extract_doi_from_url, normalize_doi
 from research_agent.retrieval.http import USER_AGENT, http_get
 from research_agent.retrieval.scoring import dedupe_evidence, score_evidence

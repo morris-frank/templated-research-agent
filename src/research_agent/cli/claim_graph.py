@@ -75,13 +75,12 @@ def main() -> int:
                     "claim_dependency_links": len(bundle.claim_dependency_links),
                     "ok": report.ok,
                     "error_count": len(report.errors),
-                    "warning_count": len(report.warnings),
                 },
                 indent=2,
             )
         )
 
-    if report.errors or report.warnings:
+    if report.errors:
         print(json.dumps(report.model_dump(mode="json"), indent=2, ensure_ascii=False))
 
     if args.validate_only:

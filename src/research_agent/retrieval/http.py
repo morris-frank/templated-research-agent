@@ -13,10 +13,12 @@ def http_get(
     params: dict[str, Any] | None = None,
     headers: dict[str, str] | None = None,
     timeout: int = 30,
+    session: requests.Session | None = None,
 ) -> requests.Response:
     hdrs = {"User-Agent": USER_AGENT, "Accept": "application/json,text/html,application/xml;q=0.9,*/*;q=0.8"}
     if headers:
         hdrs.update(headers)
-    r = requests.get(url, params=params, headers=hdrs, timeout=timeout)
+    getter = session.get if session is not None else requests.get
+    r = getter(url, params=params, headers=hdrs, timeout=timeout)
     r.raise_for_status()
     return r

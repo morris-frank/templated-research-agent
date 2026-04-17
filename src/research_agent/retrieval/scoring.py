@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Iterable
 
-from research_agent.agent.schemas import EvidenceItem
+from research_agent.types import EvidenceItem
 
 
 def score_evidence(item: EvidenceItem, query: str | None = None) -> float:

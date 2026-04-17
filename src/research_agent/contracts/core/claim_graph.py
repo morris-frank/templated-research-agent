@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ValidationIssue(BaseModel):
-    level: Literal["error", "warning"]
+    level: Literal["error"]
     code: str
     message: str
 
@@ -16,7 +16,6 @@ class ValidationIssue(BaseModel):
 class ClaimGraphValidationResult(BaseModel):
     ok: bool
     errors: list[ValidationIssue]
-    warnings: list[ValidationIssue]
 
 ClaimKind = Literal[
     "observation",
@@ -259,7 +258,6 @@ def _is_evidence_backed(
 
 def validate_claim_graph_detailed(bundle: ClaimGraphBundle) -> ClaimGraphValidationResult:
     errors: list[ValidationIssue] = []
-    warnings: list[ValidationIssue] = []
 
     def err(code: str, message: str) -> None:
         errors.append(ValidationIssue(level="error", code=code, message=message))
@@ -390,7 +388,7 @@ def validate_claim_graph_detailed(bundle: ClaimGraphBundle) -> ClaimGraphValidat
                     f"Evidence references missing execution context: {ev.evidence_id} -> {ev.execution_context_id}",
                 )
 
-    return ClaimGraphValidationResult(ok=len(errors) == 0, errors=errors, warnings=warnings)
+    return ClaimGraphValidationResult(ok=len(errors) == 0, errors=errors)
 
 
 def validate_claim_graph(bundle: ClaimGraphBundle) -> list[str]:
