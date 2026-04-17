@@ -41,13 +41,13 @@ flowchart TB
 
 1. Same plan + evidence as above.
 2. `ResearchAgent.draft_claim_graph` → `ClaimGraphDraft` (LLM).
-3. `evidence_items_to_records` in `**agent/claim_graph_bridge.py`** maps `EvidenceItem` → `EvidenceRecord` with a synthetic `ExecutionContext` for the retrieval run.
-4. `merge_claim_graph` + `validate_claim_graph` / `validate_claim_graph_detailed` in `**contracts/core/claim_graph.py`**.
-5. Customer or debug markdown via `**contracts/renderers/markdown.py`** (`render_final_projection_markdown`, `style=`).
+3. `evidence_items_to_records` in `agent/claim_graph_bridge.py` maps `EvidenceItem` → `EvidenceRecord` with a synthetic `ExecutionContext` for the retrieval run.
+4. `merge_claim_graph` + `validate_claim_graph` / `validate_claim_graph_detailed` in `contracts/core/claim_graph.py`.
+5. Customer or debug markdown via `contracts/renderers/markdown.py` (`render_final_projection_markdown`, `style=`).
 
 **Claim-graph CLI (`claim-graph`)**
 
-- Loads a bundle from `**--input-json`** or the canonical `**build_agrinova_demo_bundle()`** in `**research_agent.contracts.examples`** (not implemented inside the CLI).
+- Loads a bundle from `--input-json` or the canonical `build_agrinova_demo_bundle()` in `research_agent.contracts.examples` (not implemented inside the CLI).
 
 ## Replacing components
 
