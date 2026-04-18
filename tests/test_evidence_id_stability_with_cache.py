@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import pytest
+
+pytestmark = pytest.mark.retrieval
+
 from research_agent.retrieval.cache import CacheSettings
 from research_agent.retrieval.sources import collect_evidence_for_queries
 from research_agent.types import EvidenceItem, PlanOut

@@ -7,6 +7,7 @@ from research_agent.contracts.agronomy.dossier import (
     Intervention,
 )
 from research_agent.contracts.core.claim_graph import ClaimGraphBundle, FinalProjection
+from research_agent.contracts.agronomy.prioritization import PrioritizationResult
 from research_agent.contracts.core.questionnaire import QuestionnaireExecutionResult, QuestionnaireResponseSet
 
 
@@ -375,3 +376,60 @@ def render_final_projection_markdown(
             c = claims_by_id.get(cid)
             lines.append(f"- {c.text if c else cid}")
     return "\n".join(lines)
+
+
+def render_prioritization_markdown(result: PrioritizationResult) -> str:
+    """Tier tables, per-candidate scores, and rationale claims with evidence IDs."""
+    lines: list[str] = [
+        "# Crop × use-case prioritization",
+        "",
+        f"- Artifact: `{result.prioritization_id}`",
+        f"- Rubric: {result.rubric_version}",
+        f"- Created: {result.created_at.isoformat()}",
+        "",
+    ]
+    if result.validation_errors:
+        lines.extend(["## Validation", ""])
+        lines.extend(f"- {e}" for e in result.validation_errors)
+        lines.append("")
+
+    lines.extend(["## Tier lists", ""])
+    for tl in result.tier_lists:
+        lines.append(f"### {tl.tier}")
+        lines.append("")
+        if not tl.candidates:
+            lines.append("_None_")
+            lines.append("")
+            continue
+        lines.append("| Crop | Use case | Aggregate | ICP | Platform | Data | Evidence |")
+        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
+        for rc in tl.candidates:
+            c = rc.candidate
+            comp = rc.components
+            lines.append(
+                f"| {c.crop} | {c.use_case} | {rc.aggregate_score:.4f} | {comp.icp_fit:.2f} | "
+                f"{comp.platform_leverage:.2f} | {comp.data_availability:.2f} | {comp.evidence_strength:.2f} |"
+            )
+        lines.append("")
+
+    lines.extend(["## Ranked (all)", ""])
+    lines.append("| # | Crop | Use case | Score |")
+    lines.append("| --- | --- | --- | --- |")
+    for i, rc in enumerate(result.ranked, start=1):
+        c = rc.candidate
+        lines.append(f"| {i} | {c.crop} | {c.use_case} | {rc.aggregate_score:.4f} |")
+    lines.append("")
+
+    lines.extend(["## Rationale claims", ""])
+    for rc in result.ranked:
+        c = rc.candidate
+        lines.append(f"### {c.crop} — {c.use_case} (`{c.candidate_id}`)")
+        lines.append("")
+        if not rc.rationale_claims:
+            lines.append("_No claims._")
+        else:
+            for cl in rc.rationale_claims:
+                ev = _evidence_suffix(cl.evidence_ids)
+                lines.append(f"- {cl.text}{ev}")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"

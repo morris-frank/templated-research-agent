@@ -28,6 +28,7 @@ dev = [
 
 [project.scripts]
 research-agent = "research_agent.cli.research:main"
+research-agent-prioritize = "research_agent.cli.prioritize:main"
 claim-graph = "research_agent.cli.claim_graph:main"
 
 [tool.setuptools.packages.find]

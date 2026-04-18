@@ -613,6 +613,31 @@ class ResearchAgent:
         )
         return _payload(result2, 2)
 
+    def run_prioritization(
+        self,
+        task_prompt: str,
+        input_vars: InputVars,
+        candidates: list[Any],
+        *,
+        weights: tuple[float, float, float, float] = (0.25, 0.25, 0.25, 0.25),
+    ) -> dict[str, Any]:
+        """Plan + retrieve once; deterministic score components; LLM rationale claims validated against evidence IDs."""
+        from research_agent.agent.prioritization import run_prioritization as _run_prio
+        from research_agent.contracts.agronomy.prioritization import CropUseCaseCandidate
+
+        typed: list[CropUseCaseCandidate] = [
+            CropUseCaseCandidate.model_validate(c) if not isinstance(c, CropUseCaseCandidate) else c for c in candidates
+        ]
+        result, plan, evidence = _run_prio(self, task_prompt, input_vars, typed, weights=weights)
+        return {
+            "plan": plan.model_dump(),
+            "evidence": [e.model_dump() for e in evidence[: self.top_k_evidence]],
+            "evidence_full": [e.model_dump() for e in evidence],
+            "prioritization": result.model_dump(mode="json"),
+            "validation_errors": list(result.validation_errors),
+            "iterations": 1,
+        }
+
     def run(self, task_prompt: str, input_vars: InputVars) -> dict[str, Any]:
         target_schema = FinalReport.model_json_schema()
         plan = self.plan(task_prompt, input_vars.model_dump(), target_schema)

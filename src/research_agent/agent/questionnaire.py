@@ -1,9 +1,13 @@
-"""Questionnaire execution: instantiate, filter, answer — no retrieval (orchestrated in ResearchAgent)."""
+"""Questionnaire execution: instantiate, filter, answer — no retrieval (orchestrated in ResearchAgent).
+
+LLM calls use a client passed from the caller; this module does not import ``agent.llm`` at import time
+(so pure helpers like ``satisfies`` / ``filter_questions`` stay usable without the OpenAI stack).
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from research_agent.contracts.agronomy.dossier import CropDossier
 from research_agent.contracts.core.questionnaire import (
@@ -18,8 +22,10 @@ from research_agent.contracts.core.questionnaire import (
     QuestionSpec,
     SkippedQuestion,
 )
-from research_agent.agent.llm import LLMClient
 from research_agent.types import EvidenceItem
+
+if TYPE_CHECKING:
+    from research_agent.agent.llm import LLMClient
 
 
 @dataclass(frozen=True)
@@ -206,7 +212,7 @@ def compute_coverage(
 
 
 def answer_questions(
-    llm: LLMClient,
+    llm: "LLMClient",
     spec: QuestionnaireSpec,
     dossier: CropDossier,
     evidence: list[EvidenceItem],
@@ -307,7 +313,7 @@ def build_execution_result(
 
 
 def run_questionnaire_pass(
-    llm: LLMClient,
+    llm: "LLMClient",
     spec: QuestionnaireSpec,
     dossier: CropDossier,
     evidence: list[EvidenceItem],
