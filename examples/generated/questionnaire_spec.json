@@ -12,7 +12,13 @@
         "use_case"
       ],
       "answer_kind": "claim_set",
-      "applicability_rules": [],
+      "applicability_rules": [
+        {
+          "op": "non_empty",
+          "field": "lifecycle_ontology",
+          "value": null
+        }
+      ],
       "required_context": [
         "lifecycle_ontology",
         "production_system_context",
@@ -35,7 +41,13 @@
         "use_case"
       ],
       "answer_kind": "claim_set",
-      "applicability_rules": [],
+      "applicability_rules": [
+        {
+          "op": "present",
+          "field": "production_system_context",
+          "value": null
+        }
+      ],
       "required_context": [
         "lifecycle_ontology",
         "observables",
@@ -57,7 +69,13 @@
         "use_case"
       ],
       "answer_kind": "claim_set",
-      "applicability_rules": [],
+      "applicability_rules": [
+        {
+          "op": "has_tag",
+          "field": "",
+          "value": "pilot"
+        }
+      ],
       "required_context": [
         "lifecycle_ontology",
         "production_system_context"
@@ -78,7 +96,13 @@
         "use_case"
       ],
       "answer_kind": "claim_set",
-      "applicability_rules": [],
+      "applicability_rules": [
+        {
+          "op": "contains_keyword",
+          "field": "crop_name",
+          "value": "wheat"
+        }
+      ],
       "required_context": [
         "lifecycle_ontology",
         "observables",

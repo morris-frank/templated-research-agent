@@ -8,6 +8,9 @@ questions:
     variables: [crop, use_case]
     answer_kind: claim_set
     evidence_policy: mixed_required
+    applicability_rules:
+      - op: non_empty
+        field: lifecycle_ontology
     required_context:
       - lifecycle_ontology
       - production_system_context
@@ -20,6 +23,9 @@ questions:
     variables: [crop, use_case]
     answer_kind: claim_set
     evidence_policy: mixed_required
+    applicability_rules:
+      - op: present
+        field: production_system_context
     required_context:
       - lifecycle_ontology
       - observables
@@ -32,6 +38,9 @@ questions:
     variables: [crop, use_case]
     answer_kind: claim_set
     evidence_policy: mixed_required
+    applicability_rules:
+      - op: has_tag
+        value: pilot
     required_context:
       - lifecycle_ontology
       - production_system_context
@@ -43,6 +52,10 @@ questions:
     variables: [crop, use_case]
     answer_kind: claim_set
     evidence_policy: papers_preferred
+    applicability_rules:
+      - op: contains_keyword
+        field: crop_name
+        value: wheat
     required_context:
       - lifecycle_ontology
       - observables

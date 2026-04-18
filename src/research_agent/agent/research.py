@@ -23,8 +23,11 @@ from research_agent.agent.schemas import (
     InputVars,
     PlanOut,
 )
+from research_agent.agent.questionnaire import run_questionnaire_pass
+from research_agent.contracts.agronomy.dossier import CropDossier
 from research_agent.contracts.agronomy.input import DossierInputVars
 from research_agent.contracts.agronomy.validation import DossierThresholds, validate_crop_dossier_detailed
+from research_agent.contracts.core.questionnaire import QuestionnaireExecutionResult, QuestionnaireSpec
 from research_agent.contracts.core.claim_graph import (
     ClaimGraphDraft,
     ExecutionContext,
@@ -517,6 +520,82 @@ class ResearchAgent:
             "validation_errors": last_errors or ["no_draft"],
             "iterations": self.max_iterations,
         }
+
+    def run_questionnaire(
+        self,
+        task_prompt: str,
+        input_vars: InputVars,
+        dossier: CropDossier,
+        questionnaire_spec: QuestionnaireSpec,
+        variables: dict[str, Any],
+        *,
+        subject_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Plan + retrieve evidence, then answer applicable questionnaire items (optional one gap-fill retry)."""
+        target_schema = PlanOut.model_json_schema()
+        plan = self.plan(task_prompt, input_vars.model_dump(), target_schema)
+        evidence = self.collect_evidence(plan, input_vars)
+        if not evidence:
+            raise RuntimeError("No evidence retrieved; aborting")
+
+        sid = subject_id or f"{dossier.crop_name}__{questionnaire_spec.questionnaire_id}"
+        result = run_questionnaire_pass(
+            self.llm,
+            questionnaire_spec,
+            dossier,
+            evidence,
+            variables,
+            subject_id=sid,
+            top_k_evidence=self.top_k_evidence,
+            stop_reason="first_pass",
+        )
+
+        def _payload(exec_result: QuestionnaireExecutionResult, iters: int) -> dict[str, Any]:
+            return {
+                "plan": plan.model_dump(),
+                "evidence": [e.model_dump() for e in evidence[: self.top_k_evidence]],
+                "dossier": dossier.model_dump(mode="json"),
+                "questionnaire": exec_result.model_dump(mode="json"),
+                "validation_errors": [],
+                "iterations": iters,
+            }
+
+        insufficient = [r for r in result.responses.responses if r.status == "insufficient_evidence"]
+        if not insufficient:
+            return _payload(result.model_copy(update={"stop_reason": "all_answered_or_no_insufficient"}), 1)
+
+        gap = self.gap_queries(
+            task_prompt,
+            input_vars.model_dump(),
+            [f"questionnaire_insufficient:{r.question_id}" for r in insufficient],
+            evidence,
+        )
+        if not gap.web_queries and not gap.paper_queries:
+            final = result.model_copy(update={"stop_reason": "no_gap_queries"})
+            return _payload(final, 1)
+
+        incr_plan = PlanOut(
+            subquestions=plan.subquestions,
+            web_queries=gap.web_queries,
+            paper_queries=gap.paper_queries,
+            evidence_requirements=plan.evidence_requirements,
+        )
+        evidence = dedupe_evidence(evidence + self.collect_incremental_evidence(incr_plan))
+        time.sleep(0.5)
+
+        result2 = run_questionnaire_pass(
+            self.llm,
+            questionnaire_spec,
+            dossier,
+            evidence,
+            variables,
+            subject_id=sid,
+            top_k_evidence=self.top_k_evidence,
+            stop_reason="after_gap_fill",
+        )
+        out = _payload(result2, 2)
+        out["evidence"] = [e.model_dump() for e in evidence[: self.top_k_evidence]]
+        return out
 
     def run(self, task_prompt: str, input_vars: InputVars) -> dict[str, Any]:
         target_schema = FinalReport.model_json_schema()

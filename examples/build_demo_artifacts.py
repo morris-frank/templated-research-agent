@@ -27,11 +27,15 @@ from research_agent.contracts.core.claims import Claim
 from research_agent.contracts.core.evidence import EvidenceRef
 from research_agent.contracts.core.questionnaire import (
     QuestionAnswer,
+    QuestionnaireCoverage,
+    QuestionnaireExecutionResult,
     QuestionnaireResponseSet,
     QuestionnaireSpec,
+    SkippedQuestion,
 )
 from research_agent.contracts.renderers.markdown import (
     render_crop_dossier_markdown,
+    render_questionnaire_execution_markdown,
     render_questionnaire_response_markdown,
 )
 
@@ -357,6 +361,28 @@ def main() -> None:
     (md_dir / "wheat.dossier.md").write_text(render_crop_dossier_markdown(dossier), encoding="utf-8")
     (md_dir / "wheat.questionnaire.md").write_text(
         render_questionnaire_response_markdown(response_set), encoding="utf-8"
+    )
+    demo_execution = QuestionnaireExecutionResult(
+        responses=response_set,
+        coverage=QuestionnaireCoverage(
+            total=4,
+            applicable=3,
+            answered=2,
+            insufficient_evidence=0,
+            not_applicable=1,
+            coverage_ratio=2 / 3,
+        ),
+        skipped_questions=[
+            SkippedQuestion(
+                question_id="fixed_scope_pilot",
+                applicable=False,
+                skip_reason="not_applicable:keyword_missing:barley",
+            )
+        ],
+        stop_reason="demo_artifact",
+    )
+    (md_dir / "wheat.questionnaire.execution.md").write_text(
+        render_questionnaire_execution_markdown(demo_execution), encoding="utf-8"
     )
     (md_dir / "wheat.dossier.json").write_text(
         json.dumps(dossier.model_dump(mode="json"), indent=2, default=str), encoding="utf-8"

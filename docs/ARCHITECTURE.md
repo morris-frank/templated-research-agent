@@ -59,6 +59,13 @@ Retrieval uses persistent on-disk cache controls (`--cache-mode`, `--cache-dir`)
 - `contracts/agronomy/validation.py` mirrors the claim-graph validator: `validate_crop_dossier_detailed` returns coded `ValidationIssue` errors (no warnings yet) and enforces configurable minimums via `DossierThresholds` (yield drivers / interventions / pathogens, global evidence-linkage fraction, per-section evidence floors, intervention-effect FK integrity).
 - Rendering is centralized in `contracts/renderers/markdown.py::render_crop_dossier_markdown`; new sections are emitted only when their list is non-empty so legacy dossiers render unchanged.
 
+**Questionnaire execution**
+
+- `contracts/core/questionnaire.py` defines typed `ApplicabilityRule` (`present`, `non_empty`, `contains_keyword`, `has_tag`), `QuestionnaireCoverage`, `SkippedQuestion`, and `QuestionnaireExecutionResult` (responses + coverage + skipped diagnostics + `stop_reason`). `QuestionSpec.applicability_rules` is a list of these typed rules (not free-form strings).
+- `agent/questionnaire.py` implements a **retrieval-free** pipeline: `instantiate_questions` → `filter_questions` / `satisfies` → `answer_questions` (LLM) → `compute_coverage` / `build_execution_result`. Domain semantics (e.g. which dossier field a rule refers to) stay in agronomy execution helpers; no calls into retrieval from this module.
+- `ResearchAgent.run_questionnaire` owns plan + evidence collection, runs `run_questionnaire_pass`, and may perform **at most one** gap-fill retrieval round when some answers are `insufficient_evidence` and `gap_queries` returns non-empty web/paper queries. Stop reasons are explicit (`all_answered_or_no_insufficient`, `no_gap_queries`, or second pass with `after_gap_fill` on the packaged result).
+- A dossier is **required** for execution: callers must supply a `CropDossier` (from the same run’s `--dossier` output or `--dossier-file`). Markdown: `render_questionnaire_execution_markdown` extends the response markdown with coverage and skipped-question lines.
+
 Selective gap-fill policy:
 - first iteration drafts all three dossier partials
 - subsequent iterations map error codes to affected partial(s) and re-draft only those

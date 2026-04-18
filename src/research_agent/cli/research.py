@@ -6,7 +6,10 @@ from pathlib import Path
 from typing import Any
 
 from research_agent.contracts.agronomy.input import DossierInputVars
-from research_agent.contracts.renderers.markdown import render_crop_dossier_markdown
+from research_agent.contracts.renderers.markdown import (
+    render_crop_dossier_markdown,
+    render_questionnaire_execution_markdown,
+)
 from research_agent.retrieval.cache import CacheSettings
 from research_agent.types import InputVars
 
@@ -43,6 +46,20 @@ def load_task_file(path: str) -> tuple[str, InputVars, DossierInputVars | None]:
     return data["task_prompt"], InputVars.model_validate(data["input_vars"]), dossier_input
 
 
+def load_questionnaire_spec(path: str):
+    from research_agent.contracts.core.questionnaire import QuestionnaireSpec
+
+    p = Path(path)
+    text = p.read_text(encoding="utf-8")
+    if p.suffix.lower() in {".yaml", ".yml"}:
+        try:
+            import yaml  # type: ignore[import-untyped]
+        except ImportError as e:
+            raise RuntimeError("YAML questionnaire specs require pyyaml; pip install 'research-agent[retrieval]'") from e
+        return QuestionnaireSpec.model_validate(yaml.safe_load(text))
+    return QuestionnaireSpec.model_validate(json.loads(text))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Template-constrained research agent (retrieval + LLM draft).")
     parser.add_argument("--demo", action="store_true", help="Run the built-in demo payload")
@@ -63,6 +80,26 @@ def main() -> int:
         help="Retrieval cache behavior for this run",
     )
     parser.add_argument("--cache-dir", type=str, help="Optional retrieval cache directory override")
+    parser.add_argument(
+        "--questionnaire-spec",
+        type=str,
+        help="Path to QuestionnaireSpec YAML or JSON (requires --questionnaire-vars and --dossier or --dossier-file)",
+    )
+    parser.add_argument(
+        "--questionnaire-vars",
+        type=str,
+        help="JSON file mapping template variables (e.g. crop, use_case)",
+    )
+    parser.add_argument(
+        "--dossier-file",
+        type=str,
+        help="CropDossier JSON; use with --questionnaire-spec when not using --dossier",
+    )
+    parser.add_argument(
+        "--questionnaire-render-md",
+        type=str,
+        help="Write questionnaire execution markdown (coverage + responses)",
+    )
     args = parser.parse_args()
 
     if not args.demo and not args.task_file:
@@ -77,6 +114,14 @@ def main() -> int:
     if args.render_markdown and not args.dossier:
         parser.error("--render-markdown is only valid with --dossier")
 
+    if args.questionnaire_spec:
+        if not args.questionnaire_vars:
+            parser.error("--questionnaire-spec requires --questionnaire-vars")
+        if not args.dossier and not args.dossier_file:
+            parser.error("Questionnaire execution requires --dossier or --dossier-file")
+    if args.questionnaire_render_md and not args.questionnaire_spec:
+        parser.error("--questionnaire-render-md requires --questionnaire-spec")
+
     from research_agent.agent.llm import LLMClient
     from research_agent.agent.research import ResearchAgent
 
@@ -84,11 +129,32 @@ def main() -> int:
         llm=LLMClient(),
         cache_settings=CacheSettings(mode=args.cache_mode, cache_dir=args.cache_dir),
     )
-    result = (
-        agent.run_dossier(task_prompt, input_vars, dossier_input)
-        if args.dossier
-        else agent.run(task_prompt, input_vars)
-    )
+
+    if args.questionnaire_spec:
+        from research_agent.contracts.agronomy.dossier import CropDossier
+
+        spec = load_questionnaire_spec(args.questionnaire_spec)
+        vars_map = json.loads(Path(args.questionnaire_vars).read_text(encoding="utf-8"))
+        if args.dossier:
+            dossier_out = agent.run_dossier(task_prompt, input_vars, dossier_input)
+            dossier = CropDossier.model_validate(dossier_out["dossier"])
+            q_out = agent.run_questionnaire(task_prompt, input_vars, dossier, spec, vars_map)
+            result = {
+                **dossier_out,
+                "questionnaire": q_out["questionnaire"],
+                "questionnaire_iterations": q_out["iterations"],
+            }
+        else:
+            dossier = CropDossier.model_validate(
+                json.loads(Path(args.dossier_file).read_text(encoding="utf-8"))
+            )
+            result = agent.run_questionnaire(task_prompt, input_vars, dossier, spec, vars_map)
+    else:
+        result = (
+            agent.run_dossier(task_prompt, input_vars, dossier_input)
+            if args.dossier
+            else agent.run(task_prompt, input_vars)
+        )
     if args.claim_graph:
         from research_agent.agent.schemas import EvidenceItem, PlanOut
 
@@ -107,6 +173,13 @@ def main() -> int:
 
         md = render_crop_dossier_markdown(CropDossier.model_validate(result["dossier"]))
         Path(args.render_markdown).write_text(md, encoding="utf-8")
+    if args.questionnaire_render_md:
+        from research_agent.contracts.core.questionnaire import QuestionnaireExecutionResult
+
+        qexec = QuestionnaireExecutionResult.model_validate(result["questionnaire"])
+        Path(args.questionnaire_render_md).write_text(
+            render_questionnaire_execution_markdown(qexec), encoding="utf-8"
+        )
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0
 

@@ -18,6 +18,7 @@ retrieval = [
     "beautifulsoup4",
     "feedparser",
     "openai",
+    "pyyaml>=6",
     "requests",
 ]
 dev = [

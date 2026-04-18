@@ -7,7 +7,7 @@ from research_agent.contracts.agronomy.dossier import (
     Intervention,
 )
 from research_agent.contracts.core.claim_graph import ClaimGraphBundle, FinalProjection
-from research_agent.contracts.core.questionnaire import QuestionnaireResponseSet
+from research_agent.contracts.core.questionnaire import QuestionnaireExecutionResult, QuestionnaireResponseSet
 
 
 def _claim_lines(items: list) -> str:
@@ -236,6 +236,34 @@ def render_questionnaire_response_markdown(response_set: QuestionnaireResponseSe
                 ev = ", ".join(claim.evidence_ids) if claim.evidence_ids else "-"
                 lines.append(f"- {claim.text} (support={claim.support}, evidence={ev})")
             lines.append("")
+    return "\n".join(lines)
+
+
+def render_questionnaire_execution_markdown(execution: QuestionnaireExecutionResult) -> str:
+    """Render responses plus coverage, skipped questions, and stop reason."""
+    base = render_questionnaire_response_markdown(execution.responses)
+    cov = execution.coverage
+    lines = [
+        base.rstrip(),
+        "",
+        "## Coverage",
+        "",
+        f"- Total questions: {cov.total}",
+        f"- Applicable: {cov.applicable}",
+        f"- Answered (incl. partial): {cov.answered}",
+        f"- Insufficient evidence: {cov.insufficient_evidence}",
+        f"- Not applicable: {cov.not_applicable}",
+        f"- Coverage ratio (answered / applicable): {cov.coverage_ratio:.2%}",
+        "",
+    ]
+    if execution.stop_reason:
+        lines.extend(["### Stop reason", "", f"- {execution.stop_reason}", ""])
+    if execution.skipped_questions:
+        lines.extend(["### Skipped / filtered", ""])
+        for sk in execution.skipped_questions:
+            reason = sk.skip_reason or "-"
+            lines.append(f"- `{sk.question_id}` — applicable={sk.applicable} — {reason}")
+        lines.append("")
     return "\n".join(lines)
 
 

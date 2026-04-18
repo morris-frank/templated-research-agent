@@ -2,13 +2,41 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from research_agent.contracts.core.claims import Claim
 
 AnswerKind = Literal["short_text", "bullet_list", "enum", "matrix", "claim_set"]
 EvidencePolicy = Literal["web_ok", "papers_preferred", "papers_required", "mixed_required"]
 QuestionStatus = Literal["answered", "partial", "not_applicable", "insufficient_evidence"]
+
+ApplicabilityOp = Literal["present", "non_empty", "contains_keyword", "has_tag"]
+
+
+class ApplicabilityRule(BaseModel):
+    """Typed applicability predicate; semantics are resolved by domain execution helpers."""
+
+    op: ApplicabilityOp
+    field: str = ""
+    value: str | None = None
+
+
+class SkippedQuestion(BaseModel):
+    question_id: str
+    applicable: bool
+    skip_reason: str | None = None
+
+
+class QuestionnaireCoverage(BaseModel):
+    total: int
+    applicable: int
+    answered: int
+    insufficient_evidence: int
+    not_applicable: int
+    coverage_ratio: float = Field(
+        ...,
+        description="answered / applicable when applicable > 0, else 0.0",
+    )
 
 
 class QuestionSpec(BaseModel):
@@ -17,7 +45,7 @@ class QuestionSpec(BaseModel):
     prompt_template: str
     variables: list[str] = Field(default_factory=list)
     answer_kind: AnswerKind = "claim_set"
-    applicability_rules: list[str] = Field(default_factory=list)
+    applicability_rules: list[ApplicabilityRule] = Field(default_factory=list)
     required_context: list[str] = Field(default_factory=list)
     evidence_policy: EvidencePolicy = "mixed_required"
     guidance: str | None = None
@@ -35,6 +63,17 @@ class QuestionInstance(BaseModel):
     answer_kind: AnswerKind
     evidence_policy: EvidencePolicy
     required_context: list[str] = Field(default_factory=list)
+
+
+class QuestionAnswerDraft(BaseModel):
+    """LLM output shape for a single question; question_id is added when building QuestionAnswer."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: QuestionStatus
+    answer_markdown: str
+    key_claims: list[Claim] = Field(default_factory=list)
+    rationale: str | None = None
 
 
 class QuestionAnswer(BaseModel):
@@ -59,3 +98,10 @@ class QuestionnaireResponseSet(BaseModel):
     questionnaire_id: str
     subject_id: str
     responses: list[QuestionAnswer]
+
+
+class QuestionnaireExecutionResult(BaseModel):
+    responses: QuestionnaireResponseSet
+    coverage: QuestionnaireCoverage
+    skipped_questions: list[SkippedQuestion] = Field(default_factory=list)
+    stop_reason: str | None = None
