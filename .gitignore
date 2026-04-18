@@ -10,3 +10,6 @@ build/
 .mypy_cache/
 .env
 *json
+
+# Local-only inputs (task JSON, questionnaire vars, scratch)
+local/
