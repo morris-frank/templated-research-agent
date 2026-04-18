@@ -136,13 +136,27 @@ def main() -> int:
         spec = load_questionnaire_spec(args.questionnaire_spec)
         vars_map = json.loads(Path(args.questionnaire_vars).read_text(encoding="utf-8"))
         if args.dossier:
+            from research_agent.agent.schemas import EvidenceItem, PlanOut
+
             dossier_out = agent.run_dossier(task_prompt, input_vars, dossier_input)
             dossier = CropDossier.model_validate(dossier_out["dossier"])
-            q_out = agent.run_questionnaire(task_prompt, input_vars, dossier, spec, vars_map)
+            evidence_full_raw = dossier_out.get("evidence_full") or dossier_out["evidence"]
+            evidence_full = [EvidenceItem.model_validate(e) for e in evidence_full_raw]
+            q_out = agent.run_questionnaire(
+                task_prompt,
+                input_vars,
+                dossier,
+                spec,
+                vars_map,
+                plan=PlanOut.model_validate(dossier_out["plan"]),
+                evidence=evidence_full,
+            )
             result = {
                 **dossier_out,
                 "questionnaire": q_out["questionnaire"],
                 "questionnaire_iterations": q_out["iterations"],
+                "questionnaire_evidence_validation_errors": q_out.get("questionnaire_evidence_validation_errors", []),
+                "questionnaire_reused_dossier_retrieval": q_out.get("reused_retrieval_substrate", False),
             }
         else:
             dossier = CropDossier.model_validate(

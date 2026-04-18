@@ -256,6 +256,15 @@ def render_questionnaire_execution_markdown(execution: QuestionnaireExecutionRes
         f"- Coverage ratio (answered / applicable): {cov.coverage_ratio:.2%}",
         "",
     ]
+    if execution.evidence_validation_errors:
+        lines.extend(
+            [
+                "### Evidence ID validation",
+                "",
+                *[f"- {err}" for err in execution.evidence_validation_errors],
+                "",
+            ]
+        )
     if execution.stop_reason:
         lines.extend(["### Stop reason", "", f"- {execution.stop_reason}", ""])
     if execution.skipped_questions:

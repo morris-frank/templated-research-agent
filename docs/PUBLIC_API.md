@@ -16,7 +16,7 @@ Pre-1.0: only the items listed here are treated as a stability contract. Interna
 - `research_agent.contracts.agronomy.dossier` — `CropDossier`, `LifecycleStage`, `ProductionSystemContext`, `RotationRole`, and the agronomic-model layer: `YieldDriver`, `LimitingFactor`, `HeuristicRule`, `Intervention`, `InterventionEffect`, `Pathogen`, `BeneficialOrganism`, `SoilDependency`, `MicrobiomeFunction`, `CoverCropEffect`. All new fields on `CropDossier` are optional and default empty; pre-existing dossiers remain valid.
 - `research_agent.contracts.agronomy.input` — `DossierInputVars` for dossier artifact seed context (separate from retrieval `InputVars`).
 - `research_agent.contracts.agronomy.validation` — `validate_crop_dossier_detailed` (structured), `validate_crop_dossier` (messages-only convenience), `DossierThresholds`, `CropDossierValidationResult`. Errors-only today; same `ValidationIssue` shape as the claim-graph validator.
-- `research_agent.contracts.core.claims`, `research_agent.contracts.core.questionnaire`, `research_agent.contracts.core.evidence`, `research_agent.contracts.core.artifact_meta` — shared claim/questionnaire/evidence/meta shapes. Questionnaire specs use **typed** `ApplicabilityRule` lists on each `QuestionSpec` (`present`, `non_empty`, `contains_keyword`, `has_tag`); execution output is `QuestionnaireExecutionResult` with `QuestionnaireCoverage` and `SkippedQuestion` diagnostics.
+- `research_agent.contracts.core.claims`, `research_agent.contracts.core.questionnaire`, `research_agent.contracts.core.evidence`, `research_agent.contracts.core.artifact_meta` — shared claim/questionnaire/evidence/meta shapes. Questionnaire specs use **typed** `ApplicabilityRule` lists (`present`, `non_empty`, `contains_keyword`, `has_tag` on dossier fields / meta tags / primary use cases); legacy **string** entries in `applicability_rules` are coerced to `present`. `required_context` is enforced during filtering (non-empty top-level dossier fields). Execution output is `QuestionnaireExecutionResult` with `QuestionnaireCoverage`, `SkippedQuestion`, `evidence_validation_errors` (bad claim evidence IDs), and `stop_reason`.
 
 **Agent loop**
 
@@ -26,14 +26,14 @@ Pre-1.0: only the items listed here are treated as a stability contract. Interna
 - `research_agent.agent.llm.LLMClient`
 - `research_agent.agent.claim_graph_bridge` — `evidence_items_to_records`, `evidence_source_kind`
 - `ResearchAgent.run_dossier(...)`, `ResearchAgent.compose_claim_graph_from(...)`
-- `ResearchAgent.run_questionnaire(task_prompt, input_vars, dossier, questionnaire_spec, variables, ...)` — plan + retrieval + questionnaire pass(es); requires a materialized `CropDossier`. Optional single gap-fill retry when answers are `insufficient_evidence`.
+- `ResearchAgent.run_questionnaire(task_prompt, input_vars, dossier, questionnaire_spec, variables, ...)` — plan + retrieval + questionnaire pass(es); requires a materialized `CropDossier`. Pass optional **`plan`** and **`evidence`** together to reuse a prior retrieval run (e.g. dossier). Optional single gap-fill retry when answers are `insufficient_evidence`. Returns include `questionnaire_evidence_validation_errors` and `reused_retrieval_substrate` when applicable.
 - `ResearchAgent.run_claim_graph(...)` remains available but is **legacy convenience** for Python callers; new orchestration should use primary mode + optional sidecar composition.
 
 ## Supported CLIs
 
 - `research-agent` (setuptools entry point → `research_agent.cli.research:main`) — **requires `[retrieval]`**
   - `--demo` | `--task-file PATH`
-  - primary mode: default / `--final-report`, or `--dossier`
+  - primary mode: default / `--final-report`, or `--dossier` (`run_dossier` JSON includes `evidence_full` for downstream steps)
   - `--claim-graph` — optional sidecar from the same plan/evidence
   - `--render-markdown PATH` — dossier markdown rendering (`--dossier` only)
   - `--questionnaire-spec PATH` — YAML/JSON `QuestionnaireSpec` (requires `--questionnaire-vars` and `--dossier` or `--dossier-file`)

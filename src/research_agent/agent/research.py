@@ -482,6 +482,7 @@ class ResearchAgent:
                 return {
                     "plan": plan.model_dump(),
                     "evidence": [e.model_dump() for e in evidence[: self.top_k_evidence]],
+                    "evidence_full": [e.model_dump() for e in evidence],
                     "dossier": dossier.model_dump(mode="json"),
                     "validation_errors": [],
                     "iterations": iteration + 1,
@@ -516,6 +517,7 @@ class ResearchAgent:
         return {
             "plan": plan.model_dump(),
             "evidence": [e.model_dump() for e in evidence[: self.top_k_evidence]],
+            "evidence_full": [e.model_dump() for e in evidence],
             "dossier": dossier.model_dump(mode="json"),
             "validation_errors": last_errors or ["no_draft"],
             "iterations": self.max_iterations,
@@ -530,13 +532,24 @@ class ResearchAgent:
         variables: dict[str, Any],
         *,
         subject_id: str | None = None,
+        plan: PlanOut | None = None,
+        evidence: list[EvidenceItem] | None = None,
     ) -> dict[str, Any]:
-        """Plan + retrieve evidence, then answer applicable questionnaire items (optional one gap-fill retry)."""
-        target_schema = PlanOut.model_json_schema()
-        plan = self.plan(task_prompt, input_vars.model_dump(), target_schema)
-        evidence = self.collect_evidence(plan, input_vars)
-        if not evidence:
-            raise RuntimeError("No evidence retrieved; aborting")
+        """Plan + retrieve evidence, then answer applicable questionnaire items (optional one gap-fill retry).
+
+        Pass ``plan`` and ``evidence`` together (e.g. from ``run_dossier``) to avoid a second plan/retrieval pass.
+        """
+        if (plan is None) ^ (evidence is None):
+            raise ValueError("run_questionnaire: pass both plan and evidence, or neither")
+        reused_retrieval_substrate = plan is not None
+        if plan is None:
+            target_schema = PlanOut.model_json_schema()
+            plan = self.plan(task_prompt, input_vars.model_dump(), target_schema)
+            evidence = self.collect_evidence(plan, input_vars)
+            if not evidence:
+                raise RuntimeError("No evidence retrieved; aborting")
+        elif not evidence:
+            raise RuntimeError("No evidence provided; aborting")
 
         sid = subject_id or f"{dossier.crop_name}__{questionnaire_spec.questionnaire_id}"
         result = run_questionnaire_pass(
@@ -551,14 +564,18 @@ class ResearchAgent:
         )
 
         def _payload(exec_result: QuestionnaireExecutionResult, iters: int) -> dict[str, Any]:
-            return {
+            out = {
                 "plan": plan.model_dump(),
                 "evidence": [e.model_dump() for e in evidence[: self.top_k_evidence]],
                 "dossier": dossier.model_dump(mode="json"),
                 "questionnaire": exec_result.model_dump(mode="json"),
                 "validation_errors": [],
+                "questionnaire_evidence_validation_errors": list(exec_result.evidence_validation_errors),
                 "iterations": iters,
             }
+            if reused_retrieval_substrate:
+                out["reused_retrieval_substrate"] = True
+            return out
 
         insufficient = [r for r in result.responses.responses if r.status == "insufficient_evidence"]
         if not insufficient:

@@ -2,8 +2,8 @@
   "meta": {
     "artifact_id": "dossier-wheat",
     "artifact_type": "crop_dossier",
-    "created_at": "2026-04-17T19:44:16.479733Z",
-    "updated_at": "2026-04-17T19:44:16.479847Z",
+    "created_at": "2026-04-18T08:11:45.415223Z",
+    "updated_at": "2026-04-18T08:11:45.415366Z",
     "version": "0.1.0",
     "source_run_id": null,
     "tags": [
@@ -20,7 +20,7 @@
     "inoculant validation"
   ],
   "priority_tier": "T1",
-  "last_updated": "2026-04-17",
+  "last_updated": "2026-04-18",
   "production_system_context": {
     "core_regions": [
       "EU",

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from research_agent.contracts.core.claims import Claim
 
@@ -50,6 +50,20 @@ class QuestionSpec(BaseModel):
     evidence_policy: EvidencePolicy = "mixed_required"
     guidance: str | None = None
     tags: list[str] = Field(default_factory=list)
+
+    @field_validator("applicability_rules", mode="before")
+    @classmethod
+    def _coerce_legacy_string_rules(cls, v: Any) -> Any:
+        """Allow legacy YAML where each rule was a dossier field name string (treated as ``present``)."""
+        if v is None:
+            return []
+        out: list[Any] = []
+        for item in v:
+            if isinstance(item, str):
+                out.append({"op": "present", "field": item})
+            else:
+                out.append(item)
+        return out
 
     def render_prompt(self, variables: dict[str, Any]) -> str:
         return self.prompt_template.format(**variables)
@@ -105,3 +119,7 @@ class QuestionnaireExecutionResult(BaseModel):
     coverage: QuestionnaireCoverage
     skipped_questions: list[SkippedQuestion] = Field(default_factory=list)
     stop_reason: str | None = None
+    evidence_validation_errors: list[str] = Field(
+        default_factory=list,
+        description="Deterministic post-pass checks (e.g. claim evidence_ids not in retrieved set).",
+    )

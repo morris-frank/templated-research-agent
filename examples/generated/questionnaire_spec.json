@@ -72,8 +72,8 @@
       "applicability_rules": [
         {
           "op": "has_tag",
-          "field": "",
-          "value": "pilot"
+          "field": "meta_tags",
+          "value": "demo"
         }
       ],
       "required_context": [

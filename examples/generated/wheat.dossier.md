@@ -6,7 +6,7 @@
 - Crop Category: cereal
 - Primary Use Cases: pathogen panel, inoculant validation
 - Priority Tier: T1
-- Last Updated: 2026-04-17
+- Last Updated: 2026-04-18
 
 ### Production System Context
 

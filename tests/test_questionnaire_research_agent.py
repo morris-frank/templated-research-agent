@@ -223,3 +223,66 @@ def test_run_questionnaire_no_gap_queries_no_second_pass(monkeypatch: pytest.Mon
     assert out["iterations"] == 1
     assert n["v"] == 1
     assert out["questionnaire"]["stop_reason"] == "no_gap_queries"
+
+
+def test_run_questionnaire_reuses_plan_evidence_skips_new_retrieval(monkeypatch: pytest.MonkeyPatch) -> None:
+    from research_agent.agent import research as research_mod
+
+    plan = PlanOut(subquestions=[], web_queries=[], paper_queries=[], evidence_requirements=[])
+    ev = EvidenceItem(
+        id="e1",
+        source_type="web",
+        retrieval_method="t",
+        title="t",
+        url="http://example.com",
+    )
+    spec = _spec()
+    dossier = _dossier()
+
+    def fake_pass(*_: object, **__: object) -> QuestionnaireExecutionResult:
+        return QuestionnaireExecutionResult(
+            responses=QuestionnaireResponseSet(
+                questionnaire_id=spec.questionnaire_id,
+                subject_id="s",
+                responses=[
+                    QuestionAnswer(question_id="q1", status="answered", answer_markdown="ok"),
+                ],
+            ),
+            coverage=QuestionnaireCoverage(
+                total=1,
+                applicable=1,
+                answered=1,
+                insufficient_evidence=0,
+                not_applicable=0,
+                coverage_ratio=1.0,
+            ),
+            stop_reason="first_pass",
+        )
+
+    monkeypatch.setattr(research_mod, "run_questionnaire_pass", fake_pass)
+
+    class _LLM:
+        pass
+
+    agent = ResearchAgent(llm=_LLM())  # type: ignore[arg-type]
+
+    def boom_plan(*_: object, **__: object) -> PlanOut:
+        raise AssertionError("plan should not be called when reusing substrate")
+
+    def boom_collect(*_: object, **__: object) -> list[EvidenceItem]:
+        raise AssertionError("collect_evidence should not be called when reusing substrate")
+
+    monkeypatch.setattr(agent, "plan", boom_plan)
+    monkeypatch.setattr(agent, "collect_evidence", boom_collect)
+
+    out = agent.run_questionnaire(
+        "task",
+        InputVars(topic="t"),
+        dossier,
+        spec,
+        {"a": "v"},
+        plan=plan,
+        evidence=[ev],
+    )
+    assert out["reused_retrieval_substrate"] is True
+    assert out["questionnaire_evidence_validation_errors"] == []

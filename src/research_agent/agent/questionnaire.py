@@ -93,18 +93,26 @@ def _field_as_search_blob(value: Any) -> str:
 def satisfies(
     dossier: CropDossier,
     rule: ApplicabilityRule,
-    *,
-    question_spec: QuestionSpec | None = None,
 ) -> tuple[bool, str | None]:
-    """Evaluate one rule. Returns (ok, reason_if_failed)."""
+    """Evaluate one rule. Returns (ok, reason_if_failed).
+
+    ``has_tag`` is dossier-scoped: use ``field`` ``meta_tags`` (default) for ``ArtifactMeta.tags``,
+    or ``primary_use_cases`` for membership in ``dossier.primary_use_cases``.
+    """
     op = rule.op
     if op == "has_tag":
-        if rule.value is None or not rule.value.strip():
+        if rule.value is None or not str(rule.value).strip():
             raise ValueError("has_tag requires rule.value")
-        if question_spec is None:
-            raise ValueError("has_tag requires question_spec")
-        ok = rule.value in question_spec.tags
-        return ok, None if ok else f"tag_missing:{rule.value}"
+        tag_val = str(rule.value).strip()
+        field = (rule.field or "meta_tags").strip()
+        if field in ("", "meta_tags"):
+            tags = dossier.meta.tags or []
+            ok = tag_val in tags
+            return ok, None if ok else f"tag_missing_meta:{tag_val}"
+        if field == "primary_use_cases":
+            ok = tag_val in dossier.primary_use_cases
+            return ok, None if ok else f"tag_missing_use_case:{tag_val}"
+        raise ValueError(f"has_tag field must be 'meta_tags' or 'primary_use_cases', not {field!r}")
 
     if not rule.field:
         raise ValueError(f"Rule op {op!r} requires field")
@@ -132,24 +140,38 @@ def satisfies(
     raise ValueError(f"Unsupported applicability op: {op!r}")
 
 
+def required_context_satisfied(dossier: CropDossier, field_names: list[str]) -> tuple[bool, str | None]:
+    """Each name must be a top-level ``CropDossier`` attribute with non-empty value."""
+    for name in field_names:
+        try:
+            value = resolve_dossier_field(dossier, name)
+        except ValueError as e:
+            return False, f"required_context_unknown:{name}:{e}"
+        if not _is_nonempty(value):
+            return False, f"required_context_empty:{name}"
+    return True, None
+
+
 def filter_questions(
     dossier: CropDossier,
     instantiated: list[InstantiatedQuestion],
 ) -> tuple[list[InstantiatedQuestion], list[SkippedQuestion]]:
-    """Keep questions whose applicability_rules all pass."""
+    """Keep questions whose applicability rules and required_context all pass."""
     applicable: list[InstantiatedQuestion] = []
     skipped: list[SkippedQuestion] = []
     for iq in instantiated:
         spec = iq.spec
-        if not spec.applicability_rules:
-            applicable.append(iq)
-            continue
         failed_reason: str | None = None
-        for rule in spec.applicability_rules:
-            ok, reason = satisfies(dossier, rule, question_spec=spec)
-            if not ok:
-                failed_reason = reason or "rule_failed"
-                break
+        if spec.applicability_rules:
+            for rule in spec.applicability_rules:
+                ok, reason = satisfies(dossier, rule)
+                if not ok:
+                    failed_reason = reason or "rule_failed"
+                    break
+        if failed_reason is None and spec.required_context:
+            ok_rc, reason_rc = required_context_satisfied(dossier, spec.required_context)
+            if not ok_rc:
+                failed_reason = reason_rc or "required_context_failed"
         if failed_reason is None:
             applicable.append(iq)
         else:
@@ -229,6 +251,35 @@ def answer_questions(
     return responses
 
 
+def validate_answer_claim_evidence_ids(
+    responses: list[QuestionAnswer],
+    allowed_ids: set[str],
+) -> tuple[list[QuestionAnswer], list[str]]:
+    """Drop answers that cite evidence IDs outside ``allowed_ids`` (typically full retrieved list)."""
+    errors: list[str] = []
+    fixed: list[QuestionAnswer] = []
+    for r in responses:
+        bad: set[str] = set()
+        for c in r.key_claims:
+            for eid in c.evidence_ids:
+                if eid not in allowed_ids:
+                    bad.add(eid)
+        if bad:
+            errors.append(f"{r.question_id}:invalid_evidence_ids:{sorted(bad)}")
+            note = " [Deterministic: key_claim evidence_ids must reference retrieved evidence only.]"
+            fixed.append(
+                r.model_copy(
+                    update={
+                        "status": "insufficient_evidence",
+                        "rationale": ((r.rationale or "") + note).strip(),
+                    }
+                )
+            )
+        else:
+            fixed.append(r)
+    return fixed, errors
+
+
 def build_execution_result(
     spec: QuestionnaireSpec,
     subject_id: str,
@@ -236,6 +287,7 @@ def build_execution_result(
     skipped: list[SkippedQuestion],
     *,
     stop_reason: str | None = None,
+    evidence_validation_errors: list[str] | None = None,
 ) -> QuestionnaireExecutionResult:
     """Package responses, coverage, and diagnostics."""
     total = len(spec.questions)
@@ -250,6 +302,7 @@ def build_execution_result(
         coverage=coverage,
         skipped_questions=skipped,
         stop_reason=stop_reason,
+        evidence_validation_errors=list(evidence_validation_errors or []),
     )
 
 
@@ -264,10 +317,19 @@ def run_questionnaire_pass(
     top_k_evidence: int = 25,
     stop_reason: str | None = None,
 ) -> QuestionnaireExecutionResult:
-    """Single pass: instantiate → filter → answer → coverage."""
+    """Single pass: instantiate → filter → answer → deterministic evidence-ID check → coverage."""
     instantiated = instantiate_questions(spec, variables)
     applicable, skipped = filter_questions(dossier, instantiated)
     responses = answer_questions(
         llm, spec, dossier, evidence, applicable, top_k_evidence=top_k_evidence
     )
-    return build_execution_result(spec, subject_id, responses, skipped, stop_reason=stop_reason)
+    allowed_ids = {e.id for e in evidence}
+    responses, ev_errs = validate_answer_claim_evidence_ids(responses, allowed_ids)
+    return build_execution_result(
+        spec,
+        subject_id,
+        responses,
+        skipped,
+        stop_reason=stop_reason,
+        evidence_validation_errors=ev_errs,
+    )

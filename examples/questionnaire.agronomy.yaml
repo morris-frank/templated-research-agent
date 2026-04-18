@@ -40,7 +40,8 @@ questions:
     evidence_policy: mixed_required
     applicability_rules:
       - op: has_tag
-        value: pilot
+        field: meta_tags
+        value: demo
     required_context:
       - lifecycle_ontology
       - production_system_context
