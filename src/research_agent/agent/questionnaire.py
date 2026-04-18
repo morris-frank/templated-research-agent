@@ -228,7 +228,7 @@ def answer_questions(
             "evidence": [e.model_dump() for e in ev_slice],
             "instructions": [
                 "Return JSON only matching QuestionAnswerDraft.",
-                "Each key_claim must include evidence_ids referencing only IDs from the evidence list.",
+                "Each key_claim evidence_ids must reference only IDs appearing in the evidence array below (same slice as retrieval).",
                 "Use status=insufficient_evidence if evidence cannot support a defensible answer.",
                 "Use status=not_applicable only if the prompt cannot apply given dossier context.",
             ],
@@ -255,7 +255,7 @@ def validate_answer_claim_evidence_ids(
     responses: list[QuestionAnswer],
     allowed_ids: set[str],
 ) -> tuple[list[QuestionAnswer], list[str]]:
-    """Drop answers that cite evidence IDs outside ``allowed_ids`` (typically full retrieved list)."""
+    """Downgrade answers whose ``key_claims`` cite evidence IDs outside ``allowed_ids`` (e.g. LLM slice)."""
     errors: list[str] = []
     fixed: list[QuestionAnswer] = []
     for r in responses:
@@ -323,7 +323,8 @@ def run_questionnaire_pass(
     responses = answer_questions(
         llm, spec, dossier, evidence, applicable, top_k_evidence=top_k_evidence
     )
-    allowed_ids = {e.id for e in evidence}
+    # Match LLM payload: only IDs in the evidence slice shown to the model may be cited.
+    allowed_ids = {e.id for e in evidence[:top_k_evidence]}
     responses, ev_errs = validate_answer_claim_evidence_ids(responses, allowed_ids)
     return build_execution_result(
         spec,

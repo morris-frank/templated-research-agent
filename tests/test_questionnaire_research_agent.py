@@ -286,3 +286,5 @@ def test_run_questionnaire_reuses_plan_evidence_skips_new_retrieval(monkeypatch:
     )
     assert out["reused_retrieval_substrate"] is True
     assert out["questionnaire_evidence_validation_errors"] == []
+    assert "evidence_full" in out
+    assert len(out["evidence_full"]) == 1

@@ -567,6 +567,7 @@ class ResearchAgent:
             out = {
                 "plan": plan.model_dump(),
                 "evidence": [e.model_dump() for e in evidence[: self.top_k_evidence]],
+                "evidence_full": [e.model_dump() for e in evidence],
                 "dossier": dossier.model_dump(mode="json"),
                 "questionnaire": exec_result.model_dump(mode="json"),
                 "validation_errors": [],
@@ -610,9 +611,7 @@ class ResearchAgent:
             top_k_evidence=self.top_k_evidence,
             stop_reason="after_gap_fill",
         )
-        out = _payload(result2, 2)
-        out["evidence"] = [e.model_dump() for e in evidence[: self.top_k_evidence]]
-        return out
+        return _payload(result2, 2)
 
     def run(self, task_prompt: str, input_vars: InputVars) -> dict[str, Any]:
         target_schema = FinalReport.model_json_schema()

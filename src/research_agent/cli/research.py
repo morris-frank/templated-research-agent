@@ -158,6 +158,9 @@ def main() -> int:
                 "questionnaire_evidence_validation_errors": q_out.get("questionnaire_evidence_validation_errors", []),
                 "questionnaire_reused_dossier_retrieval": q_out.get("reused_retrieval_substrate", False),
             }
+            # Questionnaire may extend evidence (gap-fill); keep top-level evidence aligned with the questionnaire run.
+            result["evidence"] = q_out["evidence"]
+            result["evidence_full"] = q_out["evidence_full"]
         else:
             dossier = CropDossier.model_validate(
                 json.loads(Path(args.dossier_file).read_text(encoding="utf-8"))
