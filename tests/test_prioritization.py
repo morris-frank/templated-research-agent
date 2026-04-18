@@ -94,6 +94,65 @@ def test_validate_claim_evidence_ids() -> None:
     )
     assert any("invalid_evidence_id" in e for e in errs)
 
+    empty_errs = validate_claim_evidence_ids([Claim(text="x", evidence_ids=[])], {"e1"})
+    assert "empty_evidence_ids" in empty_errs
+
+
+def test_aggregate_score_rejects_bad_weights_length() -> None:
+    comp = ScoreComponents(icp_fit=0.5, platform_leverage=0.5, data_availability=0.5, evidence_strength=0.5)
+    with pytest.raises(ValueError, match="weights must be a 4-tuple"):
+        aggregate_score(comp, (0.5, 0.5))
+
+
+def test_run_prioritization_rejects_empty_claim_evidence_ids() -> None:
+    plan = PlanOut(subquestions=[], web_queries=[], paper_queries=[], evidence_requirements=[])
+    evidence = [_ev(id="e1")]
+
+    class _LLM:
+        def json_response(self, **_: object) -> dict:
+            return {
+                "rationales": [
+                    {
+                        "candidate_id": "c1",
+                        "claims": [{"text": "no cites", "evidence_ids": [], "evidence_urls": [], "support": "direct"}],
+                    }
+                ]
+            }
+
+    class _Agent:
+        top_k_evidence = 25
+        llm = _LLM()
+
+        def plan(self, *_a: object, **_k: object) -> PlanOut:
+            return plan
+
+        def collect_evidence(self, *_a: object, **_k: object) -> list[EvidenceItem]:
+            return evidence
+
+    res, _, _ = run_prioritization(
+        _Agent(),
+        "t",
+        InputVars(topic="t", source_urls=[]),
+        [CropUseCaseCandidate(candidate_id="c1", crop="W", use_case="u")],
+    )
+    assert any("empty_evidence_ids" in e for e in res.validation_errors)
+    assert not res.ranked[0].rationale_claims
+
+
+def test_render_prioritization_markdown_escapes_table_pipes() -> None:
+    c = CropUseCaseCandidate(candidate_id="c|x", crop="A|B", use_case="Y|Z")
+    comp = ScoreComponents(icp_fit=0.5, platform_leverage=0.5, data_availability=0.5, evidence_strength=0.5)
+    rc = RankedCandidate(candidate=c, components=comp, aggregate_score=0.5, rationale_claims=[])
+    pr = PrioritizationResult(
+        prioritization_id="p",
+        ranked=[rc],
+        tier_lists=[TierList(tier="T2", candidates=[rc])],
+        validation_errors=[],
+    )
+    md = render_prioritization_markdown(pr)
+    assert "| A\\|B | Y\\|Z |" in md
+    assert "### A\\|B — Y\\|Z (`c\\|x`)" in md
+
 
 def test_run_prioritization_mocks_llm_and_retrieval() -> None:
     plan = PlanOut(

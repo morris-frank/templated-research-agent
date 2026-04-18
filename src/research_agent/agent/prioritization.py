@@ -57,14 +57,24 @@ def compute_score_components(evidence: list[EvidenceItem], candidate: CropUseCas
     )
 
 
-def aggregate_score(components: ScoreComponents, weights: tuple[float, float, float, float]) -> float:
+def _validate_weights_four(weights: tuple[float, ...]) -> tuple[float, float, float, float]:
+    if len(weights) != 4:
+        raise ValueError(
+            "weights must be a 4-tuple matching "
+            "(icp_fit, platform_leverage, data_availability, evidence_strength)"
+        )
+    return (float(weights[0]), float(weights[1]), float(weights[2]), float(weights[3]))
+
+
+def aggregate_score(components: ScoreComponents, weights: tuple[float, ...]) -> float:
+    w = _validate_weights_four(weights)
     vals = (
         components.icp_fit,
         components.platform_leverage,
         components.data_availability,
         components.evidence_strength,
     )
-    return min(1.0, max(0.0, sum(w * v for w, v in zip(weights, vals))))
+    return min(1.0, max(0.0, sum(wi * vi for wi, vi in zip(w, vals))))
 
 
 def assign_tier_lists(ranked: list[RankedCandidate]) -> list[TierList]:
@@ -93,8 +103,12 @@ class PrioritizationRationaleDraft(BaseModel):
 
 
 def validate_claim_evidence_ids(claims: list[Claim], allowed_ids: set[str]) -> list[str]:
+    """Require each claim to cite at least one allowed evidence id (same slice as the LLM)."""
     errors: list[str] = []
     for c in claims:
+        if not c.evidence_ids:
+            errors.append("empty_evidence_ids")
+            continue
         for eid in c.evidence_ids:
             if eid not in allowed_ids:
                 errors.append(f"invalid_evidence_id:{eid}")
@@ -116,6 +130,7 @@ def run_prioritization(
     ids = [c.candidate_id for c in candidates]
     if len(ids) != len(set(ids)):
         raise ValueError("candidate_id values must be unique")
+    _validate_weights_four(weights)
     tk = top_k_evidence if top_k_evidence is not None else agent.top_k_evidence
 
     block = "\n".join(f"- {c.candidate_id}: {c.crop} / {c.use_case}" for c in candidates)

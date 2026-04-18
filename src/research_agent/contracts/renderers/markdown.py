@@ -32,6 +32,12 @@ def _evidence_suffix(evidence_ids: list[str]) -> str:
     return f" [evidence: {', '.join(evidence_ids)}]" if evidence_ids else ""
 
 
+def _escape_md_table_cell(text: str) -> str:
+    """Escape ``|``, backslashes, and line breaks so GFM pipe tables stay aligned."""
+    s = " ".join(text.split())
+    return s.replace("\\", "\\\\").replace("|", "\\|")
+
+
 def _resolve_target(dossier: CropDossier, target_ref: str) -> str:
     for d in dossier.yield_drivers:
         if d.id == target_ref:
@@ -407,8 +413,9 @@ def render_prioritization_markdown(result: PrioritizationResult) -> str:
             c = rc.candidate
             comp = rc.components
             lines.append(
-                f"| {c.crop} | {c.use_case} | {rc.aggregate_score:.4f} | {comp.icp_fit:.2f} | "
-                f"{comp.platform_leverage:.2f} | {comp.data_availability:.2f} | {comp.evidence_strength:.2f} |"
+                f"| {_escape_md_table_cell(c.crop)} | {_escape_md_table_cell(c.use_case)} | {rc.aggregate_score:.4f} | "
+                f"{comp.icp_fit:.2f} | {comp.platform_leverage:.2f} | {comp.data_availability:.2f} | "
+                f"{comp.evidence_strength:.2f} |"
             )
         lines.append("")
 
@@ -417,19 +424,25 @@ def render_prioritization_markdown(result: PrioritizationResult) -> str:
     lines.append("| --- | --- | --- | --- |")
     for i, rc in enumerate(result.ranked, start=1):
         c = rc.candidate
-        lines.append(f"| {i} | {c.crop} | {c.use_case} | {rc.aggregate_score:.4f} |")
+        lines.append(
+            f"| {i} | {_escape_md_table_cell(c.crop)} | {_escape_md_table_cell(c.use_case)} | "
+            f"{rc.aggregate_score:.4f} |"
+        )
     lines.append("")
 
     lines.extend(["## Rationale claims", ""])
     for rc in result.ranked:
         c = rc.candidate
-        lines.append(f"### {c.crop} — {c.use_case} (`{c.candidate_id}`)")
+        lines.append(
+            f"### {_escape_md_table_cell(c.crop)} — {_escape_md_table_cell(c.use_case)} "
+            f"(`{_escape_md_table_cell(c.candidate_id)}`)"
+        )
         lines.append("")
         if not rc.rationale_claims:
             lines.append("_No claims._")
         else:
             for cl in rc.rationale_claims:
                 ev = _evidence_suffix(cl.evidence_ids)
-                lines.append(f"- {cl.text}{ev}")
+                lines.append(f"- {_escape_md_table_cell(cl.text)}{ev}")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
