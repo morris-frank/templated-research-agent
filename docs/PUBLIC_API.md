@@ -41,6 +41,7 @@ Pre-1.0: only the items listed here are treated as a stability contract. Interna
   - `--dossier-file PATH` — load `CropDossier` JSON when not generating via `--dossier`
   - `--questionnaire-render-md PATH` — write execution markdown (coverage + responses)
   - `--cache-mode default|refresh|off`, `--cache-dir PATH` — retrieval cache controls
+  - `--output-json PATH` — write the **full** run JSON (including `evidence` / `evidence_full`) to a file; stdout prints the same structure with evidence lists replaced by `evidence_count` / `evidence_full_count`
 - `python -m research_agent` — same as `research-agent`; **requires `[retrieval]`**
 - `claim-graph` → `research_agent.cli.claim_graph:main` — core install only
   - `--demo` | `--input-json PATH`

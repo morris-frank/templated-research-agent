@@ -46,6 +46,18 @@ def load_task_file(path: str) -> tuple[str, InputVars, DossierInputVars | None]:
     return data["task_prompt"], InputVars.model_validate(data["input_vars"]), dossier_input
 
 
+def _result_json_for_stdout(result: dict[str, Any]) -> dict[str, Any]:
+    """Omit bulky evidence lists from CLI output; keep counts for visibility."""
+    out = dict(result)
+    if "evidence" in out:
+        ev = out.pop("evidence")
+        out["evidence_count"] = len(ev) if isinstance(ev, list) else 0
+    if "evidence_full" in out:
+        ef = out.pop("evidence_full")
+        out["evidence_full_count"] = len(ef) if isinstance(ef, list) else 0
+    return out
+
+
 def load_questionnaire_spec(path: str):
     from research_agent.contracts.core.questionnaire import QuestionnaireSpec
 
@@ -80,6 +92,12 @@ def main() -> int:
         help="Retrieval cache behavior for this run",
     )
     parser.add_argument("--cache-dir", type=str, help="Optional retrieval cache directory override")
+    parser.add_argument(
+        "--output-json",
+        type=str,
+        metavar="PATH",
+        help="Write full run result JSON (including evidence) to this path; stdout omits evidence lists",
+    )
     parser.add_argument(
         "--questionnaire-spec",
         type=str,
@@ -197,7 +215,12 @@ def main() -> int:
         Path(args.questionnaire_render_md).write_text(
             render_questionnaire_execution_markdown(qexec), encoding="utf-8"
         )
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+    if args.output_json:
+        Path(args.output_json).write_text(
+            json.dumps(result, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+    print(json.dumps(_result_json_for_stdout(result), indent=2, ensure_ascii=False))
     return 0
 
 
