@@ -39,6 +39,87 @@ def _ev(**kwargs: object) -> EvidenceItem:
     return EvidenceItem.model_validate(base)
 
 
+def test_prioritize_cli_parses_weights_and_rubric(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from research_agent.cli import prioritize as cli_prioritize
+
+    task = tmp_path / "task.json"
+    task.write_text(
+        json.dumps(
+            {
+                "task_prompt": "x",
+                "input_vars": {"topic": "t", "source_urls": []},
+                "prioritization_weights": [0.1, 0.2, 0.3, 0.4],
+                "rubric_version": "1.9",
+            }
+        ),
+        encoding="utf-8",
+    )
+    cand = tmp_path / "c.json"
+    cand.write_text(json.dumps([{"candidate_id": "a", "crop": "W", "use_case": "u"}]), encoding="utf-8")
+
+    seen: dict[str, object] = {}
+
+    class _DummyAgent:
+        def __init__(self, **_: object) -> None:
+            pass
+
+        def run_prioritization(self, *_a: object, **kw: object) -> dict:
+            seen["weights"] = kw.get("weights")
+            seen["rubric_version"] = kw.get("rubric_version")
+            prio = PrioritizationResult(
+                prioritization_id="p",
+                ranked=[],
+                tier_lists=[],
+                validation_errors=[],
+                rubric_version=str(kw.get("rubric_version", "1.0")),
+            )
+            return {
+                "plan": {"subquestions": [], "web_queries": [], "paper_queries": [], "evidence_requirements": []},
+                "evidence": [],
+                "evidence_full": [],
+                "prioritization": prio.model_dump(mode="json"),
+                "validation_errors": [],
+                "iterations": 1,
+            }
+
+    class _DummyLLM:
+        pass
+
+    monkeypatch.setattr("research_agent.agent.llm.LLMClient", _DummyLLM)
+    monkeypatch.setattr("research_agent.agent.research.ResearchAgent", _DummyAgent)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "research-agent-prioritize",
+            "--task-file",
+            str(task),
+            "--candidates",
+            str(cand),
+            "--weights",
+            "0.25,0.25,0.25,0.25",
+            "--rubric-version",
+            "2.0",
+        ],
+    )
+
+    assert cli_prioritize.main() == 0
+    assert seen["weights"] == (0.25, 0.25, 0.25, 0.25)
+    assert seen["rubric_version"] == "2.0"
+
+
+def test_prioritize_task_file_weights_only() -> None:
+    from research_agent.cli.prioritize import parse_weights_csv, weights_from_task_extras
+
+    assert parse_weights_csv("0.1,0.2,0.3,0.4") == (0.1, 0.2, 0.3, 0.4)
+    assert parse_weights_csv(None) is None
+    with pytest.raises(ValueError, match="four comma-separated"):
+        parse_weights_csv("1,2,3")
+    assert weights_from_task_extras({}) is None
+    assert weights_from_task_extras({"prioritization_weights": [0.25, 0.25, 0.25, 0.25]}) == (0.25, 0.25, 0.25, 0.25)
+    with pytest.raises(ValueError):
+        weights_from_task_extras({"prioritization_weights": [1, 2]})
+
+
 def test_prioritization_result_json_roundtrip() -> None:
     c = CropUseCaseCandidate(candidate_id="x", crop="Wheat", use_case="u")
     comp = ScoreComponents(icp_fit=0.5, platform_leverage=0.5, data_availability=0.5, evidence_strength=0.5)
@@ -311,6 +392,7 @@ def test_research_agent_run_prioritization_delegates(monkeypatch: pytest.MonkeyP
         *,
         weights: tuple[float, float, float, float] = (0.25, 0.25, 0.25, 0.25),
         top_k_evidence: int | None = None,
+        rubric_version: str = "1.0",
     ) -> tuple[PrioritizationResult, PlanOut, list[EvidenceItem]]:
         called["task"] = task_prompt
         called["n"] = len(candidates)

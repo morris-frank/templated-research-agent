@@ -52,11 +52,14 @@ Pre-1.0: only the items listed here are treated as a stability contract. Interna
   - Combined **`--dossier`** + **`--questionnaire-spec`**: after the questionnaire step, top-level **`evidence`** and **`evidence_full`** in the merged JSON match the questionnaire run (including any gap-fill retrieval); **`questionnaire_reused_dossier_retrieval`** is set when plan/evidence were reused from the dossier pass
 - `python -m research_agent` — same as `research-agent`; **requires `[retrieval]`**
 - `research-agent-prioritize` → `research_agent.cli.prioritize:main` — **requires `[retrieval]`**
-  - `--demo` | `--task-file PATH` (JSON with `task_prompt` and `input_vars`, same shape as `research-agent`)
+  - `--demo` | `--task-file PATH` (JSON with `task_prompt` and `input_vars`, same shape as `research-agent`; optional **`prioritization_weights`** — JSON array of four numbers — and **`rubric_version`** string for defaults)
   - `--candidates PATH` — JSON array of `{ "candidate_id", "crop", "use_case", ... }` rows (or `{ "candidates": [...] }`)
+  - `--weights W1,W2,W3,W4` — comma-separated aggregate weights (icp_fit, platform_leverage, data_availability, evidence_strength); overrides task-file `prioritization_weights` when set
+  - `--rubric-version STR` — recorded on `PrioritizationResult.rubric_version`; overrides task-file `rubric_version` when set
   - `--output-json PATH` — full run JSON (`prioritization`, `evidence`, `evidence_full`); stdout omits bulky evidence lists (counts only)
   - `--render-markdown PATH` — human-readable tier table + rationale lines
   - `--cache-mode`, `--cache-dir` — same semantics as `research-agent`
+  - Tier-1 orchestration recipe: [docs/TIER1_PIPELINE.md](TIER1_PIPELINE.md)
 - `claim-graph` → `research_agent.cli.claim_graph:main` — core install only
   - `--demo` | `--input-json PATH`
   - `--validate-only`, `--write-json`, `--render-markdown`, `--render-style customer|debug`, `--print-summary`

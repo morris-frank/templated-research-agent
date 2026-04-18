@@ -123,6 +123,7 @@ def run_prioritization(
     *,
     weights: tuple[float, float, float, float] = (0.25, 0.25, 0.25, 0.25),
     top_k_evidence: int | None = None,
+    rubric_version: str = "1.0",
 ) -> tuple[PrioritizationResult, PlanOut, list[EvidenceItem]]:
     """Plan + retrieve once, score deterministically, optional LLM rationales with evidence IDs."""
     if not candidates:
@@ -196,5 +197,6 @@ def run_prioritization(
         ranked=ranked,
         tier_lists=assign_tier_lists(ranked),
         validation_errors=validation_errors,
+        rubric_version=rubric_version,
     )
     return result, plan, evidence

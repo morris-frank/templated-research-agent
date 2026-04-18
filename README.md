@@ -14,12 +14,13 @@ pip install -e ".[dev]"
 
 ## CLIs
 
-**Requirements.** `research-agent` and `python -m research_agent` require the `[retrieval]` extra (OpenAI client + HTTP stack). Install with `pip install -e ".[retrieval]"` or `pip install -e ".[dev]"`. The `claim-graph` CLI and the contracts package work on the core install (Pydantic only).
+**Requirements.** `research-agent`, `python -m research_agent`, and **`research-agent-prioritize`** require the `[retrieval]` extra (OpenAI client + HTTP stack). Install with `pip install -e ".[retrieval]"` or `pip install -e ".[dev]"`. The `claim-graph` CLI and the contracts package work on the core install (Pydantic only).
 
 | Command | Purpose | Extras |
 |--------|---------|--------|
 | `research-agent` | Full agent (`--final-report` default or `--dossier`) with optional `--claim-graph` sidecar. Requires API keys (see below). | `[retrieval]` |
 | `python -m research_agent` | Same as `research-agent`. | `[retrieval]` |
+| `research-agent-prioritize` | **Tier-1 crop × use-case ranking**: batch candidates JSON → `PrioritizationResult` plus evidence; optional markdown. Flags and JSON shapes are documented in [docs/PUBLIC_API.md](docs/PUBLIC_API.md). | `[retrieval]` |
 | `claim-graph` | Validate / render / export a `ClaimGraphBundle` (`--demo` uses package demo data). | core |
 
 Environment (research agent): `OPENAI_API_KEY`, `TAVILY_API_KEY`; optional `OPENAI_MODEL`, `OPENAI_BASE_URL`, `OPENAI_ORG`.
@@ -78,5 +79,6 @@ claim-graph --demo --print-summary
 ## Documentation
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — layers and data flow.
-- [docs/PUBLIC_API.md](docs/PUBLIC_API.md) — supported imports and CLI surface.
+- [docs/PUBLIC_API.md](docs/PUBLIC_API.md) — supported imports and CLI surface (`research-agent`, `research-agent-prioritize`, `claim-graph`).
+- [docs/TIER1_PIPELINE.md](docs/TIER1_PIPELINE.md) — optional recipe: prioritization → per-crop dossier / questionnaire runs.
 - [docs/REFACTORING.md](docs/REFACTORING.md) — migration from monoliths and repo layout.
