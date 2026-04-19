@@ -8,6 +8,7 @@ from research_agent.contracts.agronomy.dossier import (
 )
 from research_agent.contracts.core.claim_graph import ClaimGraphBundle, FinalProjection
 from research_agent.contracts.agronomy.prioritization import PrioritizationResult
+from research_agent.contracts.agronomy.synthesis import SynthesisOutput
 from research_agent.contracts.core.questionnaire import QuestionnaireExecutionResult, QuestionnaireResponseSet
 
 
@@ -445,4 +446,47 @@ def render_prioritization_markdown(result: PrioritizationResult) -> str:
                 ev = _evidence_suffix(cl.evidence_ids)
                 lines.append(f"- {_escape_md_table_cell(cl.text)}{ev}")
         lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def render_synthesis_markdown(out: SynthesisOutput) -> str:
+    """Summary tables for cross-crop patterns and platform primitives (v1)."""
+    lines: list[str] = [
+        "# Cross-crop synthesis",
+        "",
+        f"- Synthesis ID: `{out.synthesis_id}`",
+        f"- Schema: {out.schema_version}",
+        f"- Created: {out.created_at.isoformat()}",
+        "",
+    ]
+    if out.validation_warnings:
+        lines.extend(["## Warnings", ""])
+        lines.extend(f"- {w}" for w in out.validation_warnings)
+        lines.append("")
+    if out.prioritization_context:
+        lines.extend(["## Prioritization context (metadata only)", ""])
+        for row in out.prioritization_context:
+            lines.append(f"- {row}")
+        lines.append("")
+    lines.extend(["## Cross-crop patterns", ""])
+    if not out.cross_crop_patterns:
+        lines.append("_None (raise thresholds or add runs)._")
+    else:
+        lines.append("| Pattern | Kind | Label | Crops | Mentions |")
+        lines.append("| --- | --- | --- | --- | --- |")
+        for p in out.cross_crop_patterns:
+            lines.append(
+                f"| `{p.pattern_id}` | {p.kind} | {_escape_md_table_cell(p.normalized_label)} | "
+                f"{len(p.run_ids)} | {p.mention_count} |"
+            )
+    lines.extend(["", "## Platform primitives", ""])
+    if not out.platform_primitives:
+        lines.append("_None._")
+    else:
+        for pr in out.platform_primitives:
+            lines.append(
+                f"- **{pr.kind}**: {_escape_md_table_cell(pr.label)} "
+                f"(`{pr.primitive_id}`) — runs: {', '.join(pr.run_ids)}"
+            )
+    lines.append("")
     return "\n".join(lines).rstrip() + "\n"

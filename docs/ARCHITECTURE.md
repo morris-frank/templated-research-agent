@@ -69,6 +69,7 @@ Retrieval uses persistent on-disk cache controls (`--cache-mode`, `--cache-dir`)
 - A dossier is **required** for execution: callers must supply a `CropDossier` (from the same run’s `--dossier` output or `--dossier-file`). Markdown: `render_questionnaire_execution_markdown` extends the response markdown with coverage, skipped-question lines, and evidence validation.
 - **CLI (`--dossier` + questionnaire):** the merged JSON replaces top-level `evidence` and `evidence_full` with the questionnaire run’s lists so they stay consistent after optional gap-fill; stdout remains redacted unless `--output-json` is used for the full payload.
 - **Prioritization (`research-agent-prioritize`):** `agent/prioritization.py` scores each crop × use-case candidate with fixed **deterministic** component rules on shared evidence, then asks the LLM for rationale **claims** whose `evidence_ids` are validated like questionnaire answers. One plan + retrieval pass covers the batch. Stdout omits evidence lists (counts only); `--output-json` carries `prioritization`, `evidence`, and `evidence_full`.
+- **Synthesis (`research-agent-synthesize`):** `synthesis/pipeline.py` aggregates **saved** `CropDossier` JSON plus optional **`QuestionnaireExecutionResult` JSON** per manifest row; deterministic grouping and primitive derivation. **No claim-graph inputs in v1**; prioritization may appear only as manifest metadata. Does **not** import the retrieval stack.
 
 Selective gap-fill policy:
 - first iteration drafts all three dossier partials

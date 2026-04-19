@@ -8,19 +8,20 @@ Template-constrained research workflow: plan → retrieve (web + scholarly) → 
 pip install -e ".[dev]"
 ```
 
-- **Core** (`pip install -e .`): Pydantic contracts and claim-graph validation only.
+- **Core** (`pip install -e .`): Pydantic contracts and claim-graph validation only. The `research_agent.retrieval` **package** loads only scoring helpers without optional HTTP/feed deps; importing `research_agent.retrieval.sources` still needs `[retrieval]`.
 - **`[retrieval]`**: `requests`, `beautifulsoup4`, `feedparser`, `openai` for the research CLI and retrieval stack.
 - **`[dev]`**: `pyyaml` + `[retrieval]` (recommended for local work).
 
 ## CLIs
 
-**Requirements.** `research-agent`, `python -m research_agent`, and **`research-agent-prioritize`** require the `[retrieval]` extra (OpenAI client + HTTP stack). Install with `pip install -e ".[retrieval]"` or `pip install -e ".[dev]"`. The `claim-graph` CLI and the contracts package work on the core install (Pydantic only).
+**Requirements.** `research-agent`, `python -m research_agent`, and **`research-agent-prioritize`** require the `[retrieval]` extra (OpenAI client + HTTP stack). Install with `pip install -e ".[retrieval]"` or `pip install -e ".[dev]"`. **`research-agent-synthesize`** runs on the **core** install (no retrieval). The `claim-graph` CLI and contracts work on the core install (Pydantic only).
 
 | Command | Purpose | Extras |
 |--------|---------|--------|
 | `research-agent` | Full agent (`--final-report` default or `--dossier`) with optional `--claim-graph` sidecar. Requires API keys (see below). | `[retrieval]` |
 | `python -m research_agent` | Same as `research-agent`. | `[retrieval]` |
 | `research-agent-prioritize` | **Tier-1 crop × use-case ranking**: batch candidates JSON → `PrioritizationResult` plus evidence; optional markdown. Flags and JSON shapes are documented in [docs/PUBLIC_API.md](docs/PUBLIC_API.md). | `[retrieval]` |
+| `research-agent-synthesize` | **Cross-crop synthesis**: manifest of dossier (+ optional questionnaire) JSON → `SynthesisOutput`; optional markdown. See [docs/PUBLIC_API.md](docs/PUBLIC_API.md). | core |
 | `claim-graph` | Validate / render / export a `ClaimGraphBundle` (`--demo` uses package demo data). | core |
 
 Environment (research agent): `OPENAI_API_KEY`, `TAVILY_API_KEY`; optional `OPENAI_MODEL`, `OPENAI_BASE_URL`, `OPENAI_ORG`.
