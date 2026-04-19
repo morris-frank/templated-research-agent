@@ -8,10 +8,18 @@ from pathlib import Path
 
 import pytest
 
-from research_agent.contracts.agronomy.dossier import CropDossier, LifecycleStage, Pathogen
+from research_agent.contracts.agronomy.dossier import (
+    CropDossier,
+    Intervention,
+    InterventionEffect,
+    LifecycleStage,
+    Pathogen,
+    YieldDriver,
+)
+from research_agent.contracts.core.claims import Claim
 from research_agent.contracts.agronomy.synthesis import SynthesisOutput
 from research_agent.contracts.core.artifact_meta import ArtifactMeta
-from research_agent.synthesis.pipeline import load_manifest, run_synthesis
+from research_agent.synthesis.pipeline import load_manifest, resolve_safe_path, run_synthesis
 
 
 def _dossier_with_pathogen(crop: str, pathogen_name: str) -> CropDossier:
@@ -48,8 +56,8 @@ def test_run_synthesis_finds_cross_crop_pathogen(tmp_path: Path) -> None:
         "min_mentions": 1,
     }
     (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-    runs, base, mc, mm = load_manifest(tmp_path / "manifest.json")
-    out = run_synthesis(runs=runs, base_path=base, min_crops_for_pattern=mc, min_mentions=mm)
+    m_loaded, base = load_manifest(tmp_path / "manifest.json")
+    out = run_synthesis(manifest=m_loaded, base_path=base)
     kinds = {p.kind for p in out.cross_crop_patterns}
     assert "pathogen" in kinds
     assert any("fusarium" in p.normalized_label.lower() for p in out.cross_crop_patterns)
@@ -102,3 +110,78 @@ def test_synthesize_cli(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys:
     assert cli_syn.main() == 0
     out = json.loads(capsys.readouterr().out)
     assert out["synthesis_id"].startswith("syn-")
+
+
+def test_resolve_safe_path_rejects_traversal(tmp_path: Path) -> None:
+    (tmp_path / "x.json").write_text("{}", encoding="utf-8")
+    assert resolve_safe_path(tmp_path, "x.json").name == "x.json"
+    with pytest.raises(ValueError, match="escape"):
+        resolve_safe_path(tmp_path, "../outside")
+
+
+def test_synthesis_id_same_for_identical_payloads_different_dirs(tmp_path: Path) -> None:
+    d1 = _dossier_with_pathogen("Wheat", "Fusarium")
+    d2 = _dossier_with_pathogen("Maize", "Fusarium")
+    manifest_body = {
+        "runs": [
+            {"run_id": "wheat", "dossier": "w.json"},
+            {"run_id": "maize", "dossier": "m.json"},
+        ],
+        "min_crops_for_pattern": 2,
+    }
+    ids: list[str] = []
+    for name in ("dir_a", "dir_b"):
+        d = tmp_path / name
+        d.mkdir()
+        (d / "w.json").write_text(json.dumps(d1.model_dump(mode="json")), encoding="utf-8")
+        (d / "m.json").write_text(json.dumps(d2.model_dump(mode="json")), encoding="utf-8")
+        (d / "manifest.json").write_text(json.dumps(manifest_body), encoding="utf-8")
+        m_loaded, base = load_manifest(d / "manifest.json")
+        ids.append(run_synthesis(manifest=m_loaded, base_path=base).synthesis_id)
+    assert ids[0] == ids[1]
+
+
+def test_manifest_accepts_inputs_alias(tmp_path: Path) -> None:
+    d = _dossier_with_pathogen("Wheat", "Fusarium")
+    (tmp_path / "w.json").write_text(json.dumps(d.model_dump(mode="json")), encoding="utf-8")
+    (tmp_path / "manifest.json").write_text(
+        json.dumps(
+            {
+                "inputs": [{"run_id": "wheat", "dossier": "w.json"}],
+                "min_crops_for_pattern": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+    m_loaded, _ = load_manifest(tmp_path / "manifest.json")
+    assert len(m_loaded.runs) == 1
+
+
+def test_ontology_edges_from_dossier_links(tmp_path: Path) -> None:
+    now = datetime.now(timezone.utc)
+    mech = Claim(text="mechanism", evidence_ids=[])
+    dossier = CropDossier(
+        meta=ArtifactMeta(artifact_id="x", artifact_type="crop_dossier", created_at=now, updated_at=now),
+        crop_name="Wheat",
+        crop_category="cereal",
+        primary_use_cases=["u"],
+        priority_tier="T1",
+        last_updated=date.today(),
+        lifecycle_ontology=[LifecycleStage(stage="Pre-plant", description="")],
+        yield_drivers=[YieldDriver(id="yd1", name="Grain fill", mechanism=mech, evidence_ids=[])],
+        interventions=[Intervention(id="i1", kind="management", name="Fungicide", evidence_ids=[])],
+        intervention_effects=[
+            InterventionEffect(intervention_id="i1", target_ref="yd1", effect="increase", rationale=mech)
+        ],
+        pathogens=[Pathogen(id="p1", name="Rust", affected_stages=["Pre-plant"])],
+    )
+    (tmp_path / "one.json").write_text(json.dumps(dossier.model_dump(mode="json")), encoding="utf-8")
+    (tmp_path / "manifest.json").write_text(
+        json.dumps({"runs": [{"run_id": "wheat", "dossier": "one.json"}], "min_crops_for_pattern": 1}),
+        encoding="utf-8",
+    )
+    m_loaded, base = load_manifest(tmp_path / "manifest.json")
+    out = run_synthesis(manifest=m_loaded, base_path=base)
+    rels = {e.relation for e in out.ontology_edges}
+    assert "observed_in_stage" in rels
+    assert "targets" in rels

@@ -484,9 +484,22 @@ def render_synthesis_markdown(out: SynthesisOutput) -> str:
         lines.append("_None._")
     else:
         for pr in out.platform_primitives:
+            prov = ""
+            if pr.provenance.get("composite_rule"):
+                prov = f" _(rule: {pr.provenance['composite_rule']})_"
             lines.append(
                 f"- **{pr.kind}**: {_escape_md_table_cell(pr.label)} "
-                f"(`{pr.primitive_id}`) — runs: {', '.join(pr.run_ids)}"
+                f"(`{pr.primitive_id}`) — runs: {', '.join(pr.run_ids)}{prov}"
+            )
+    lines.extend(["", "## Ontology edges", ""])
+    if not out.ontology_edges:
+        lines.append("_None._")
+    else:
+        lines.append("| Edge | Relation | Source | Target |")
+        lines.append("| --- | --- | --- | --- |")
+        for e in out.ontology_edges:
+            lines.append(
+                f"| `{e.edge_id}` | {e.relation} | `{e.source_node_id}` | `{e.target_node_id}` |"
             )
     lines.append("")
     return "\n".join(lines).rstrip() + "\n"

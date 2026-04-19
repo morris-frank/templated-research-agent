@@ -21,6 +21,13 @@ ConceptKind = Literal[
     "soil",
     "questionnaire_answer",
     "questionnaire_claim",
+    "intervention_effect_link",
+    "beneficial",
+    "cover_crop_effect",
+    "production_context",
+    "rotation_claim",
+    "open_question",
+    "heuristic_rule",
 ]
 
 PrimitiveKind = Literal[
@@ -32,6 +39,8 @@ PrimitiveKind = Literal[
     "monitoring_target",
     "yield_limiting_factor",
 ]
+
+RelationKind = Literal["depends_on", "affects", "mitigated_by", "observed_in_stage", "targets"]
 
 
 class NormalizedConcept(BaseModel):
@@ -56,7 +65,7 @@ class CrossCropPattern(BaseModel):
 
 
 class OntologyNode(BaseModel):
-    """Minimal taxonomy node for v1 (pattern graph, not a full ontology)."""
+    """Minimal taxonomy node (pattern-backed cross-crop inventory)."""
 
     node_id: str
     label: str
@@ -64,23 +73,38 @@ class OntologyNode(BaseModel):
     pattern_id: str | None = None
 
 
+class OntologyEdge(BaseModel):
+    """Deterministic relationship between endpoints (stable node ids)."""
+
+    edge_id: str
+    relation: RelationKind
+    source_node_id: str
+    target_node_id: str
+    provenance: dict[str, Any] = Field(default_factory=dict)
+
+
 class PlatformPrimitive(BaseModel):
-    """Derived primitive from repeated cross-crop patterns."""
+    """Derived primitive from repeated cross-crop patterns or composite rules."""
 
     primitive_id: str
     kind: PrimitiveKind
     label: str
     supporting_pattern_ids: list[str] = Field(default_factory=list)
     run_ids: list[str] = Field(default_factory=list)
+    provenance: dict[str, Any] = Field(
+        default_factory=dict,
+        description="e.g. composite_rule when derived from co-occurring patterns.",
+    )
 
 
 class SynthesisOutput(BaseModel):
     synthesis_id: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    schema_version: str = "1.0"
+    schema_version: str = "1.1"
     normalized_concepts: list[NormalizedConcept] = Field(default_factory=list)
     cross_crop_patterns: list[CrossCropPattern] = Field(default_factory=list)
     ontology_nodes: list[OntologyNode] = Field(default_factory=list)
+    ontology_edges: list[OntologyEdge] = Field(default_factory=list)
     platform_primitives: list[PlatformPrimitive] = Field(default_factory=list)
     prioritization_context: list[dict[str, Any]] = Field(
         default_factory=list,

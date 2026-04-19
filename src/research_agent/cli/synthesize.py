@@ -35,13 +35,8 @@ def main() -> int:
     if not manifest_path.is_file():
         raise SystemExit(f"Manifest not found: {manifest_path}")
 
-    runs, base, min_crops, min_m = load_manifest(manifest_path)
-    result = run_synthesis(
-        runs=runs,
-        base_path=base,
-        min_crops_for_pattern=min_crops,
-        min_mentions=min_m,
-    )
+    manifest, base = load_manifest(manifest_path)
+    result = run_synthesis(manifest=manifest, base_path=base)
 
     if args.output_json:
         Path(args.output_json).write_text(
